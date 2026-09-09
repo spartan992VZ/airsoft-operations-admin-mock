@@ -1,0 +1,11 @@
+{
+  "title": "Airsoft Operations Admin",
+  "description": "Streamline airsoft event management with a sleek dashboard for organizers, featuring real-time stats, registrations, and quick access to essential tools.",
+  "robots": {
+    "index": false
+  },
+  "accessibility": {
+    "addBypassLinks": false,
+    "ignoreReducedMotion": false
+  }
+}
