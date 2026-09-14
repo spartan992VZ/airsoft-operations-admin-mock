@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import { Routes, Route, Link, useLocation } from "react-router-dom";
 import {
   LayoutDashboard, CalendarDays, PlusCircle, ClipboardList,
@@ -6,17 +6,19 @@ import {
   Settings, LogOut, HelpCircle, Bell, ChevronDown,
   ArrowUpRight, MoreHorizontal, Calendar, Shield,
   Crosshair, Target, Radio, ChevronRight, ChevronLeft,
-  Clock, Euro, UserCheck, AlertCircle, CheckCircle2,
+  Clock, Banknote, UserCheck, AlertCircle, CheckCircle2,
   XCircle, FileText, Send, Eye,
 } from "lucide-react";
 import {
   LineChart, Line, BarChart, Bar, XAxis, YAxis, CartesianGrid,
   Tooltip, ResponsiveContainer, PieChart, Pie, Cell,
 } from "recharts";
-import { LIME, LIME_DIM, NAV_ITEMS, CHART_TOOLTIP } from "./shared";
+import { LIME, LIME_DIM, NAV_ITEMS, CHART_TOOLTIP, formatARS } from "./shared";
 import { StatusBadge } from "./components/shared";
+import { useEventStore, useRegistrationStore } from "./stores";
 import MisEventos from "./pages/MisEventos";
 import CrearEvento from "./pages/CrearEvento";
+import EventoDetalle from "./pages/EventoDetalle";
 import Inscripciones from "./pages/Inscripciones";
 import Equipos from "./pages/Equipos";
 import Campos from "./pages/Campos";
@@ -50,41 +52,41 @@ const kpis = [
   { label: "Eventos creados", value: "8", sub: "Ver todos", icon: CalendarDays, trend: "+2 este mes", up: true },
   { label: "Inscripciones totales", value: "356", sub: "Ver detalle", icon: ClipboardList, trend: "+34 esta semana", up: true },
   { label: "Asistencia promedio", value: "92%", sub: "Ver detalle", icon: UserCheck, trend: "+3% vs anterior", up: true },
-  { label: "Ingresos totales", value: "€1.240", sub: "Ver detalle", icon: Euro, trend: "+€180 este mes", up: true },
+  { label: "Ingresos totales", value: "$1.240.000", sub: "Ver detalle", icon: Banknote, trend: "Resumen demo", up: true },
   { label: "Campos utilizados", value: "4", sub: "Ver detalle", icon: Target, trend: "Sin cambios", up: false },
 ];
 
 const upcomingEvents = [
   {
-    id: 1, name: "Operación Black Hawk", field: "Campo Delta, Madrid",
-    date: "24", month: "MAY", enrolled: 48, capacity: 60, income: "€720", status: "Publicado",
+    id: 1, name: "Operación Black Hawk", field: "Campo Delta, La Plata",
+    date: "24", month: "OCT", enrolled: 48, capacity: 60, income: "$720.000", status: "Publicado",
     img: "https://images.unsplash.com/photo-1612872087720-bb876e2e67d1?w=120&h=80&fit=crop&auto=format",
   },
   {
-    id: 2, name: "Misión Red Dawn", field: "Campo Alpha, Barcelona",
-    date: "31", month: "MAY", enrolled: 35, capacity: 50, income: "€350", status: "Publicado",
+    id: 2, name: "Misión Red Dawn", field: "Campo Alpha, Córdoba",
+    date: "31", month: "OCT", enrolled: 35, capacity: 50, income: "$525.000", status: "Publicado",
     img: "https://images.unsplash.com/photo-1579656381254-20f2f7b4c7b5?w=120&h=80&fit=crop&auto=format",
   },
   {
     id: 3, name: "Asalto al Fuerte", field: "Campo Delta, Valencia",
-    date: "07", month: "JUN", enrolled: 20, capacity: 40, income: "€170", status: "Borrador",
+    date: "07", month: "NOV", enrolled: 20, capacity: 40, income: "$300.000", status: "Borrador",
     img: "https://images.unsplash.com/photo-1550684376-efcbd6e3f031?w=120&h=80&fit=crop&auto=format",
   },
 ];
 
 const quickActions = [
-  { icon: PlusCircle, label: "Crear nuevo evento", desc: "Publicar en minutos" },
-  { icon: ClipboardList, label: "Gestionar inscripciones", desc: "Aprobar pendientes" },
-  { icon: Send, label: "Enviar anuncio", desc: "A todos los inscritos" },
-  { icon: BarChart2, label: "Ver reportes", desc: "Análisis detallado" },
-  { icon: TrendingUp, label: "Ver estadísticas", desc: "Métricas del mes" },
-  { icon: MapPin, label: "Gestionar campos", desc: "Disponibilidad" },
+  { icon: PlusCircle, label: "Crear nuevo evento", desc: "Publicar en minutos", route: "/events/create" },
+  { icon: ClipboardList, label: "Gestionar inscripciones", desc: "Aprobar pendientes", route: "/registrations" },
+  { icon: Send, label: "Enviar anuncio", desc: "A todos los inscritos", route: "/events" },
+  { icon: BarChart2, label: "Ver reportes", desc: "Análisis detallado", route: "/events" },
+  { icon: TrendingUp, label: "Ver estadísticas", desc: "Métricas del mes", route: "/" },
+  { icon: MapPin, label: "Gestionar campos", desc: "Disponibilidad", route: "/fields" },
 ];
 
 const recentActivity = [
   { icon: UserCheck, text: "Nueva inscripción: RaiderX", sub: "Operación Black Hawk", time: "hace 10 min", color: LIME },
   { icon: Shield, text: "Nueva cuenta: OperativeLegend", sub: "Se registró como jugador", time: "hace 25 min", color: "#60a5fa" },
-  { icon: CheckCircle2, text: "Cargo aprobado: Campo Omega", sub: "Pago de €85 confirmado", time: "hace 1 hora", color: LIME },
+  { icon: CheckCircle2, text: "Cargo aprobado: Campo Omega", sub: "Pago de $85.000 confirmado", time: "hace 1 hora", color: LIME },
   { icon: FileText, text: "Registro recibido", sub: "campo@titanes-airsoft.es", time: "hace 2 horas", color: "#f59e0b" },
   { icon: Users, text: "Equipo creado: Delta Force", sub: "12 miembros activos", time: "hace 3 horas", color: "#a78bfa" },
   { icon: AlertCircle, text: "Campo sin confirmar", sub: "Asalto al Fuerte – Valencia", time: "hace 5 horas", color: "#f87171" },
@@ -126,20 +128,20 @@ const eventosPorEstado = [
 ];
 
 const campos = [
-  { name: "Campo Delta, Madrid", eventos: 8, pct: 100 },
-  { name: "Campo Alpha, Barcelona", eventos: 6, pct: 75 },
-  { name: "Campo Omega, Toledo", eventos: 4, pct: 50 },
+  { name: "Campo Delta, La Plata", eventos: 8, pct: 100 },
+  { name: "Campo Alpha, Córdoba", eventos: 6, pct: 75 },
+  { name: "Campo Omega, Rosario", eventos: 4, pct: 50 },
   { name: "Campo Base Sur, Valencia", eventos: 3, pct: 37 },
 ];
 
 const destacados = [
   {
-    name: "Operación Black Hawk", field: "Campo Delta, Madrid", date: "24 MAY",
+    name: "Operación Black Hawk", field: "Campo Delta, La Plata", date: "24 OCT",
     enrolled: 48, capacity: 60, status: "Publicado",
     img: "https://images.unsplash.com/photo-1612872087720-bb876e2e67d1?w=280&h=160&fit=crop&auto=format",
   },
   {
-    name: "Misión Red Dawn", field: "Campo Alpha, Barcelona", date: "31 MAY",
+    name: "Misión Red Dawn", field: "Campo Alpha, Córdoba", date: "31 OCT",
     enrolled: 35, capacity: 50, status: "Publicado",
     img: "https://images.unsplash.com/photo-1579656381254-20f2f7b4c7b5?w=280&h=160&fit=crop&auto=format",
   },
@@ -149,7 +151,7 @@ const destacados = [
     img: "https://images.unsplash.com/photo-1550684376-efcbd6e3f031?w=280&h=160&fit=crop&auto=format",
   },
   {
-    name: "Venganza", field: "Campo Omega, Toledo", date: "21 JUN",
+    name: "Venganza", field: "Campo Omega, Rosario", date: "21 NOV",
     enrolled: 15, capacity: 30, status: "Borrador",
     img: "https://images.unsplash.com/photo-1506905925346-21bda4d32df4?w=280&h=160&fit=crop&auto=format",
   },
@@ -162,8 +164,66 @@ const destacados = [
 
 // ─── Dashboard component ──────────────────────────────────────────────────────
 function Dashboard() {
+  const { events } = useEventStore();
+  const { registrations } = useRegistrationStore();
   const [featuredPage, setFeaturedPage] = useState(0);
   const perPage = 4;
+
+  const publishedEvents = useMemo(
+    () => [...events].filter((event) => event.status === "Publicado").sort((a, b) => a.dateSort.localeCompare(b.dateSort)),
+    [events]
+  );
+
+  const upcomingEvents = useMemo(
+    () =>
+      [...events]
+        .filter((event) => event.status === "Publicado" || event.status === "Borrador")
+        .sort((a, b) => a.dateSort.localeCompare(b.dateSort))
+        .slice(0, 3),
+    [events]
+  );
+
+  const dashboardKpis = useMemo(() => {
+    const totalEnrolled = events.reduce((sum, event) => sum + event.enrolled, 0);
+    const totalCapacity = events.reduce((sum, event) => sum + event.maxCapacity, 0);
+    const pendingInscripciones = registrations.filter((registration) => registration.status === "Pendiente").length;
+    const pendingPayments = registrations.filter((registration) => registration.paymentStatus === "Pendiente").length;
+    const totalRevenue = events.reduce((sum, event) => sum + event.revenue, 0);
+
+    return [
+      { label: "Eventos creados", value: String(events.length), sub: "Ver todos", icon: CalendarDays, trend: `${publishedEvents.length} publicados`, up: true },
+      { label: "Inscripciones", value: String(registrations.length), sub: "Ver detalle", icon: ClipboardList, trend: `${pendingInscripciones} pendientes`, up: pendingInscripciones <= 5 },
+      { label: "Capacidad / asistencia", value: `${totalEnrolled}/${totalCapacity}`, sub: "Ver detalle", icon: UserCheck, trend: `${totalCapacity ? Math.round((totalEnrolled / totalCapacity) * 100) : 0}%`, up: true },
+      { label: "Ingresos totales", value: formatARS(totalRevenue), sub: "Ver detalle", icon: Banknote, trend: `${publishedEvents.length} eventos activos`, up: true },
+      { label: "Operaciones", value: String(pendingInscripciones + pendingPayments), sub: "Revisión", icon: Target, trend: `${pendingPayments} pagos`, up: pendingInscripciones + pendingPayments === 0 },
+    ];
+  }, [events, registrations, publishedEvents.length]);
+
+  const recentRegistrations = useMemo(
+    () => [...registrations].sort((a, b) => b.registrationDate.localeCompare(a.registrationDate)).slice(0, 5),
+    [registrations]
+  );
+
+  const dashboardChartData = useMemo(() => {
+    const monthMap = new Map<string, { mes: string; inscritos: number; asistencia: number }>();
+
+    events.forEach((event) => {
+      const date = new Date(`${event.dateSort || event.date}T12:00:00`);
+      if (Number.isNaN(date.getTime())) return;
+      const mes = new Intl.DateTimeFormat("es-ES", { month: "short" })
+        .format(date)
+        .replace(".", "")
+        .slice(0, 3)
+        .toUpperCase();
+      const current = monthMap.get(mes) ?? { mes, inscritos: 0, asistencia: 0 };
+      current.inscritos += event.enrolled;
+      current.asistencia += Math.min(event.enrolled, Math.max(0, Math.round(event.enrolled * 0.9)));
+      monthMap.set(mes, current);
+    });
+
+    return Array.from(monthMap.values()).slice(-6);
+  }, [events]);
+
   const totalPages = Math.ceil(destacados.length / perPage);
   const visibleDestacados = destacados.slice(featuredPage * perPage, featuredPage * perPage + perPage);
 
@@ -171,7 +231,7 @@ function Dashboard() {
     <main className="flex-1 overflow-y-auto p-5" style={{ background: "#080809" }}>
       {/* KPIs */}
       <div className="grid gap-3 mb-5" style={{ gridTemplateColumns: "repeat(5, 1fr)" }}>
-        {kpis.map(({ label, value, sub, icon: Icon, trend, up }) => (
+        {dashboardKpis.map(({ label, value, sub, icon: Icon, trend, up }) => (
           <div key={label} className="rounded-xl p-4" style={{ background: "#101012", border: "1px solid rgba(255,255,255,0.07)" }}>
             <div className="flex items-start justify-between mb-3">
               <div className="rounded-lg flex items-center justify-center" style={{ width: 34, height: 34, background: "rgba(163,230,53,0.08)", border: "1px solid rgba(163,230,53,0.12)" }}>
@@ -198,11 +258,15 @@ function Dashboard() {
               <Calendar size={10} /> Ver calendario
             </button>
           </div>
-          {upcomingEvents.map((evt, i) => (
+          {upcomingEvents.map((evt, i) => {
+            const date = new Date(`${evt.dateSort || evt.date}T12:00:00`);
+            const day = Number.isNaN(date.getTime()) ? "" : String(date.getDate()).padStart(2, "0");
+            const month = Number.isNaN(date.getTime()) ? "" : new Intl.DateTimeFormat("es-ES", { month: "short" }).format(date).replace(".", "").slice(0, 3).toUpperCase();
+            return (
             <div key={evt.id} className="flex items-center gap-3 px-4 py-3" style={{ borderBottom: i < upcomingEvents.length - 1 ? "1px solid rgba(255,255,255,0.04)" : "none" }}>
               <div className="flex flex-col items-center justify-center rounded-lg shrink-0" style={{ width: 44, height: 44, background: "#1a1a1c", border: "1px solid rgba(255,255,255,0.07)" }}>
-                <span style={{ fontFamily: "'Barlow Condensed', sans-serif", fontSize: 20, fontWeight: 700, color: "#fff", lineHeight: 1 }}>{evt.date}</span>
-                <span style={{ fontSize: 9, color: LIME, fontWeight: 600, letterSpacing: "0.08em", textTransform: "uppercase" }}>{evt.month}</span>
+                <span style={{ fontFamily: "'Barlow Condensed', sans-serif", fontSize: 20, fontWeight: 700, color: "#fff", lineHeight: 1 }}>{day}</span>
+                <span style={{ fontSize: 9, color: LIME, fontWeight: 600, letterSpacing: "0.08em", textTransform: "uppercase" }}>{month}</span>
               </div>
               <div className="rounded-md overflow-hidden shrink-0" style={{ width: 72, height: 44, background: "#1a1a1c" }}>
                 <img src={evt.img} alt={evt.name} style={{ width: "100%", height: "100%", objectFit: "cover", opacity: 0.85 }} />
@@ -210,23 +274,24 @@ function Dashboard() {
               <div className="flex-1 min-w-0">
                 <div style={{ fontSize: 13.5, fontWeight: 500, color: "#e5e7eb", marginBottom: 2 }}>{evt.name}</div>
                 <div className="flex items-center gap-1" style={{ color: "#6b7280", fontSize: 11 }}>
-                  <MapPin size={10} /> {evt.field}
+                  <MapPin size={10} /> {evt.field}, {evt.city}
                 </div>
               </div>
               <div className="flex items-center gap-4 shrink-0">
                 <div className="text-right">
-                  <div style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: 13, color: "#e5e7eb", fontWeight: 500 }}>{evt.enrolled}/{evt.capacity}</div>
+                  <div style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: 13, color: "#e5e7eb", fontWeight: 500 }}>{evt.enrolled}/{evt.maxCapacity}</div>
                   <div style={{ fontSize: 10, color: "#6b7280" }}>Inscritos</div>
                 </div>
                 <div className="text-right">
-                  <div style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: 13, color: LIME, fontWeight: 500 }}>{evt.income}</div>
+                  <div style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: 13, color: LIME, fontWeight: 500 }}>{formatARS(evt.revenue)}</div>
                   <div style={{ fontSize: 10, color: "#6b7280" }}>Ingresos</div>
                 </div>
                 <StatusBadge status={evt.status} />
                 <button style={{ color: "#4b5563" }}><MoreHorizontal size={15} /></button>
               </div>
             </div>
-          ))}
+            );
+          })}
         </div>
 
         {/* Quick actions */}
@@ -235,14 +300,14 @@ function Dashboard() {
             <h2 style={{ fontFamily: "'Barlow Condensed', sans-serif", fontSize: 15, fontWeight: 600, letterSpacing: "0.04em", color: "#e5e7eb" }}>Acciones rápidas</h2>
           </div>
           <div className="p-3 grid grid-cols-2 gap-2">
-            {quickActions.map(({ icon: Icon, label, desc }) => (
-              <button key={label} className="flex flex-col items-center justify-center rounded-lg p-3 text-center transition-all" style={{ background: "#141416", border: "1px solid rgba(255,255,255,0.07)", minHeight: 80 }}>
+            {quickActions.map(({ icon: Icon, label, desc, route }) => (
+              <Link key={label} to={route} className="flex flex-col items-center justify-center rounded-lg p-3 text-center transition-all" style={{ background: "#141416", border: "1px solid rgba(255,255,255,0.07)", minHeight: 80, textDecoration: "none" }}>
                 <div className="rounded-lg flex items-center justify-center mb-2" style={{ width: 32, height: 32, background: "rgba(163,230,53,0.08)", border: "1px solid rgba(163,230,53,0.1)" }}>
                   <Icon size={14} style={{ color: LIME }} strokeWidth={1.5} />
                 </div>
                 <span style={{ fontSize: 11.5, fontWeight: 500, color: "#d1d5db", lineHeight: 1.2, marginBottom: 2 }}>{label}</span>
                 <span style={{ fontSize: 10, color: "#6b7280" }}>{desc}</span>
-              </button>
+              </Link>
             ))}
           </div>
         </div>
@@ -281,10 +346,10 @@ function Dashboard() {
             <h2 style={{ fontFamily: "'Barlow Condensed', sans-serif", fontSize: 15, fontWeight: 600, letterSpacing: "0.04em", color: "#e5e7eb" }}>Inscripciones recientes</h2>
             <button style={{ fontSize: 11, color: LIME }}>Ver todas</button>
           </div>
-          {inscriptions.map((ins, i) => (
-            <div key={i} className="flex items-center gap-3 px-4 py-2.5" style={{ borderBottom: i < inscriptions.length - 1 ? "1px solid rgba(255,255,255,0.04)" : "none" }}>
+          {recentRegistrations.map((ins, i) => (
+            <div key={ins.id} className="flex items-center gap-3 px-4 py-2.5" style={{ borderBottom: i < recentRegistrations.length - 1 ? "1px solid rgba(255,255,255,0.04)" : "none" }}>
               <div className="rounded-full flex items-center justify-center shrink-0" style={{ width: 30, height: 30, background: "#1e1e22", border: "1px solid rgba(163,230,53,0.15)", fontFamily: "'JetBrains Mono', monospace", fontSize: 10, fontWeight: 700, color: LIME }}>
-                {ins.avatar}
+                {ins.initials}
               </div>
               <div className="flex-1 min-w-0">
                 <div style={{ fontSize: 12.5, fontWeight: 500, color: "#e5e7eb" }}>{ins.player}</div>
@@ -292,7 +357,7 @@ function Dashboard() {
               </div>
               <div className="flex flex-col items-end gap-1">
                 <StatusBadge status={ins.status} />
-                <span style={{ fontSize: 10, color: "#4b5563", fontFamily: "'JetBrains Mono', monospace" }}>{ins.date}</span>
+                <span style={{ fontSize: 10, color: "#4b5563", fontFamily: "'JetBrains Mono', monospace" }}>{ins.registrationDate}</span>
               </div>
             </div>
           ))}
@@ -307,7 +372,7 @@ function Dashboard() {
             </div>
             <div className="px-2 pt-2 pb-2" style={{ height: 150 }}>
               <ResponsiveContainer width="100%" height={150}>
-                <LineChart data={chartData} margin={{ top: 4, right: 12, left: -20, bottom: 0 }}>
+                <LineChart data={dashboardChartData.length ? dashboardChartData : chartData} margin={{ top: 4, right: 12, left: -20, bottom: 0 }}>
                   <CartesianGrid stroke="rgba(255,255,255,0.04)" strokeDasharray="0" vertical={false} />
                   <XAxis dataKey="mes" tick={{ fill: "#6b7280", fontSize: 10, fontFamily: "'JetBrains Mono', monospace" }} axisLine={false} tickLine={false} />
                   <YAxis tick={{ fill: "#6b7280", fontSize: 10, fontFamily: "'JetBrains Mono', monospace" }} axisLine={false} tickLine={false} />
@@ -335,7 +400,7 @@ function Dashboard() {
                   <CartesianGrid stroke="rgba(255,255,255,0.04)" strokeDasharray="0" vertical={false} />
                   <XAxis dataKey="mes" tick={{ fill: "#6b7280", fontSize: 10, fontFamily: "'JetBrains Mono', monospace" }} axisLine={false} tickLine={false} />
                   <YAxis tick={{ fill: "#6b7280", fontSize: 10, fontFamily: "'JetBrains Mono', monospace" }} axisLine={false} tickLine={false} />
-                  <Tooltip {...CHART_TOOLTIP} formatter={(v: number) => [`€${v}`, "Ingresos"]} />
+                  <Tooltip {...CHART_TOOLTIP} formatter={(v: number) => [formatARS(v), "Ingresos"]} />
                   <Bar dataKey="ingresos" fill={LIME} radius={[3, 3, 0, 0]} opacity={0.85} />
                 </BarChart>
               </ResponsiveContainer>
@@ -359,12 +424,17 @@ function Dashboard() {
                   </PieChart>
                 </ResponsiveContainer>
                 <div style={{ position: "absolute", top: "50%", left: "50%", transform: "translate(-50%,-50%)", textAlign: "center" }}>
-                  <div style={{ fontFamily: "'Barlow Condensed', sans-serif", fontSize: 22, fontWeight: 700, color: "#fff", lineHeight: 1 }}>8</div>
+                  <div style={{ fontFamily: "'Barlow Condensed', sans-serif", fontSize: 22, fontWeight: 700, color: "#fff", lineHeight: 1 }}>{events.length}</div>
                   <div style={{ fontSize: 9, color: "#6b7280", letterSpacing: "0.05em" }}>Total</div>
                 </div>
               </div>
               <div className="mt-2 space-y-1.5">
-                {eventosPorEstado.map((e) => (
+                {[
+                  { name: "Publicados", value: events.filter((event) => event.status === "Publicado").length, color: LIME },
+                  { name: "Borradores", value: events.filter((event) => event.status === "Borrador").length, color: "#404040" },
+                  { name: "Finalizados", value: events.filter((event) => event.status === "Finalizado").length, color: "#60a5fa" },
+                  { name: "Cancelados", value: events.filter((event) => event.status === "Cancelado").length, color: "#f87171" },
+                ].map((e) => (
                   <div key={e.name} className="flex items-center justify-between">
                     <div className="flex items-center gap-2">
                       <div style={{ width: 7, height: 7, borderRadius: 2, background: e.color }} />
@@ -584,7 +654,7 @@ function AppShell() {
             </button>
             <div className="flex items-center gap-2 rounded-lg px-3 py-1.5" style={{ background: "#141416", border: "1px solid rgba(255,255,255,0.07)" }}>
               <Calendar size={13} color="#6b7280" strokeWidth={1.5} />
-              <span style={{ fontSize: 12, color: "#9ca3af", fontFamily: "'JetBrains Mono', monospace" }}>12 May – 18 May, 2024</span>
+              <span style={{ fontSize: 12, color: "#9ca3af", fontFamily: "'JetBrains Mono', monospace" }}>12 sep – 18 sep, 2026</span>
             </div>
           </div>
         </header>
@@ -594,6 +664,7 @@ function AppShell() {
           <Route path="/" element={<Dashboard />} />
           <Route path="/events" element={<MisEventos />} />
           <Route path="/events/create" element={<CrearEvento />} />
+          <Route path="/events/:id" element={<EventoDetalle />} />
           <Route path="/registrations" element={<Inscripciones />} />
           <Route path="/teams" element={<Equipos />} />
           <Route path="/fields" element={<Campos />} />

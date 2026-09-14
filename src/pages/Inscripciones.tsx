@@ -1,4 +1,4 @@
-import { useState, useMemo } from "react";
+import { useState, useMemo, useEffect } from "react";
 import {
   Search, ChevronDown, Users, Euro, CheckCircle2, XCircle,
   Clock, AlertCircle, MoreHorizontal, Eye, Check, X,
@@ -7,6 +7,8 @@ import {
   Send, Download, SlidersHorizontal, Shield,
 } from "lucide-react";
 import { LIME, LIME_DIM, StatusBadge } from "../shared";
+import { useRegistrationStore, useEventStore, useTeamStore } from "../stores";
+import { Registration } from "../types";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 type InscStatus = "Confirmada" | "Pendiente" | "Rechazada" | "Cancelada";
@@ -21,7 +23,7 @@ interface Registration {
   event: string;
   eventDate: string;
   regDate: string;
-  payStatus: PayStatus;
+  paymentStatus: PayStatus;
   status: InscStatus;
   phone: string;
   email: string;
@@ -29,41 +31,10 @@ interface Registration {
 }
 
 // ─── Data ─────────────────────────────────────────────────────────────────────
-const EVENTS = [
-  { name: "Todos los eventos", field: "", date: "", enrolled: 0, capacity: 0 },
-  { name: "Operación Black Hawk", field: "Campo Delta, Madrid", date: "24 May 2024", enrolled: 48, capacity: 60 },
-  { name: "Misión Red Dawn", field: "Campo Alpha, Barcelona", date: "31 May 2024", enrolled: 35, capacity: 50 },
-  { name: "Asalto al Fuerte", field: "Campo Delta, Valencia", date: "07 Jun 2024", enrolled: 20, capacity: 40 },
-  { name: "Venganza", field: "Campo Omega, Toledo", date: "21 Jun 2024", enrolled: 15, capacity: 30 },
-  { name: "Blackout", field: "Campo Base Sur, Valencia", date: "05 Jul 2024", enrolled: 0, capacity: 50 },
-];
-
-const TEAMS = ["Todos los equipos", "Delta Force", "Shadow Wolves", "Iron Snakes", "Ghost Recon", "Red Devils", "Lone Wolves", "Alpha Squad", "Cobra Team"];
 const STATUS_OPTS: InscStatus[] = ["Confirmada", "Pendiente", "Rechazada", "Cancelada"];
 const PAY_OPTS: PayStatus[] = ["Pagado", "Pendiente", "Reembolsado", "Exento"];
 
 const AVATAR_COLORS = ["#1d4ed8","#7c3aed","#be185d","#b45309","#0f766e","#15803d","#c2410c","#4338ca","#0e7490","#9f1239"];
-
-const ALL_REGS: Registration[] = [
-  { id:1,  player:"RaiderX",        initials:"RX", avatarColor:"#1d4ed8", team:"Delta Force",   event:"Operación Black Hawk", eventDate:"24 May 2024", regDate:"12/05/2024", payStatus:"Pagado",    status:"Confirmada", phone:"+34 612 345 678", email:"raiderx@airsoft.es" },
-  { id:2,  player:"Ghost_7",        initials:"G7", avatarColor:"#7c3aed", team:"Shadow Wolves", event:"Misión Red Dawn",       eventDate:"31 May 2024", regDate:"14/05/2024", payStatus:"Pagado",    status:"Confirmada", phone:"+34 623 456 789", email:"ghost7@mail.com" },
-  { id:3,  player:"Viper45",        initials:"V4", avatarColor:"#be185d", team:"Iron Snakes",   event:"Asalto al Fuerte",     eventDate:"07 Jun 2024", regDate:"15/05/2024", payStatus:"Pendiente", status:"Pendiente",  phone:"+34 634 567 890", email:"viper45@gmail.com", notes:"Solicita plaza en equipo BLUFOR" },
-  { id:4,  player:"HunterK",        initials:"HK", avatarColor:"#b45309", team:"Ghost Recon",   event:"Operación Black Hawk", eventDate:"24 May 2024", regDate:"13/05/2024", payStatus:"Pagado",    status:"Confirmada", phone:"+34 645 678 901", email:"hunterk@airmail.es" },
-  { id:5,  player:"TacticalOne",    initials:"T1", avatarColor:"#0f766e", team:"Red Devils",    event:"Misión Red Dawn",       eventDate:"31 May 2024", regDate:"16/05/2024", payStatus:"Pendiente", status:"Pendiente",  phone:"+34 656 789 012", email:"t1ops@outlook.com", notes:"Alérgico al látex, informar al equipo médico" },
-  { id:6,  player:"OperativeLegend",initials:"OL", avatarColor:"#15803d", team:"Delta Force",   event:"Operación Black Hawk", eventDate:"24 May 2024", regDate:"10/05/2024", payStatus:"Pagado",    status:"Confirmada", phone:"+34 667 890 123", email:"oplegend@airsoft.es" },
-  { id:7,  player:"Sniper_44",      initials:"S4", avatarColor:"#c2410c", team:"Alpha Squad",   event:"Asalto al Fuerte",     eventDate:"07 Jun 2024", regDate:"17/05/2024", payStatus:"Pendiente", status:"Pendiente",  phone:"+34 678 901 234", email:"sniper44@proton.me" },
-  { id:8,  player:"CobaltMike",     initials:"CM", avatarColor:"#4338ca", team:"Cobra Team",   event:"Venganza",             eventDate:"21 Jun 2024", regDate:"18/05/2024", payStatus:"Pagado",    status:"Confirmada", phone:"+34 689 012 345", email:"cobaltmike@mail.es" },
-  { id:9,  player:"NightOwl",       initials:"NO", avatarColor:"#0e7490", team:"Lone Wolves",  event:"Operación Black Hawk", eventDate:"24 May 2024", regDate:"11/05/2024", payStatus:"Pagado",    status:"Confirmada", phone:"+34 690 123 456", email:"nightowl@gmail.com" },
-  { id:10, player:"Bravo_Six",      initials:"B6", avatarColor:"#9f1239", team:"Ghost Recon",  event:"Misión Red Dawn",       eventDate:"31 May 2024", regDate:"15/05/2024", payStatus:"Reembolsado",status:"Cancelada", phone:"+34 601 234 567", email:"bravo6@airsoft.es", notes:"Lesión. Se reembolsó el pago." },
-  { id:11, player:"PhantomX",       initials:"PX", avatarColor:"#1d4ed8", team:"Shadow Wolves",event:"Asalto al Fuerte",     eventDate:"07 Jun 2024", regDate:"19/05/2024", payStatus:"Pendiente", status:"Pendiente",  phone:"+34 612 111 222", email:"phantomx@mail.com" },
-  { id:12, player:"IronBull",       initials:"IB", avatarColor:"#7c3aed", team:"Iron Snakes",  event:"Venganza",             eventDate:"21 Jun 2024", regDate:"20/05/2024", payStatus:"Pagado",    status:"Confirmada", phone:"+34 623 222 333", email:"ironbull@airsoft.es" },
-  { id:13, player:"ReconAlpha",     initials:"RA", avatarColor:"#0f766e", team:"Alpha Squad",  event:"Operación Black Hawk", eventDate:"24 May 2024", regDate:"12/05/2024", payStatus:"Exento",    status:"Confirmada", phone:"+34 634 333 444", email:"reconalpha@gmail.com", notes:"Organizador colaborador, exento de pago" },
-  { id:14, player:"ViperStrike",    initials:"VS", avatarColor:"#15803d", team:"Red Devils",   event:"Blackout",             eventDate:"05 Jul 2024", regDate:"21/05/2024", payStatus:"Pendiente", status:"Pendiente",  phone:"+34 645 444 555", email:"viperstrike@mail.es" },
-  { id:15, player:"DarkMatter",     initials:"DM", avatarColor:"#c2410c", team:"Cobra Team",   event:"Misión Red Dawn",       eventDate:"31 May 2024", regDate:"14/05/2024", payStatus:"Pagado",    status:"Rechazada",  phone:"+34 656 555 666", email:"darkmatter@outlook.com", notes:"Equipamiento no homologado. FPS fuera de norma." },
-  { id:16, player:"StormBreaker",   initials:"SB", avatarColor:"#4338ca", team:"Delta Force",  event:"Asalto al Fuerte",     eventDate:"07 Jun 2024", regDate:"22/05/2024", payStatus:"Pagado",    status:"Confirmada", phone:"+34 667 666 777", email:"storm@airsoft.es" },
-  { id:17, player:"ZeroKelvin",     initials:"ZK", avatarColor:"#9f1239", team:"Lone Wolves",  event:"Venganza",             eventDate:"21 Jun 2024", regDate:"23/05/2024", payStatus:"Pendiente", status:"Pendiente",  phone:"+34 678 777 888", email:"zerokelvin@proton.me" },
-  { id:18, player:"EchoTango",      initials:"ET", avatarColor:"#b45309", team:"Ghost Recon",  event:"Blackout",             eventDate:"05 Jul 2024", regDate:"24/05/2024", payStatus:"Pendiente", status:"Pendiente",  phone:"+34 689 888 999", email:"echotango@mail.com" },
-];
 
 const PER_PAGE = 10;
 type SortKey = "player" | "event" | "regDate" | "status" | "payStatus";
@@ -155,6 +126,10 @@ function FileIcon(props: any) { return <Eye {...props} />; }
 
 // ─── Main component ───────────────────────────────────────────────────────────
 export default function Inscripciones() {
+  const { registrations, setRegistrations, updateRegistration } = useRegistrationStore();
+  const { events, setEvents } = useEventStore();
+  const { teams, setTeams } = useTeamStore();
+  
   const [eventFilter, setEventFilter] = useState("Todos los eventos");
   const [search, setSearch]           = useState("");
   const [statusFilter, setStatusFilter] = useState<InscStatus | "Todos">("Todos");
@@ -165,13 +140,63 @@ export default function Inscripciones() {
   const [sortKey, setSortKey]         = useState<SortKey>("regDate");
   const [sortDir, setSortDir]         = useState<"asc"|"desc">("desc");
   const [openMenu, setOpenMenu]       = useState<number|null>(null);
-  const [regs, setRegs]               = useState<Registration[]>(ALL_REGS);
+
+  // Initialize data from seed data if empty
+  useEffect(() => {
+    if (registrations.length === 0) {
+      const seedRegs = localStorage.getItem("registrations");
+      if (seedRegs) {
+        setRegistrations(JSON.parse(seedRegs));
+      }
+    }
+  }, [registrations.length, setRegistrations]);
+
+  useEffect(() => {
+    if (events.length === 0) {
+      const seedEvents = localStorage.getItem("events");
+      if (seedEvents) {
+        setEvents(JSON.parse(seedEvents));
+      }
+    }
+  }, [events.length, setEvents]);
+
+  useEffect(() => {
+    if (teams.length === 0) {
+      const seedTeams = localStorage.getItem("teams");
+      if (seedTeams) {
+        setTeams(JSON.parse(seedTeams));
+      }
+    }
+  }, [teams.length, setTeams]);
+
+  // Dynamic options from stores
+  const eventOptions = useMemo(() => {
+    const uniqueEvents = [...new Set(registrations.map(r => r.event))];
+    return ["Todos los eventos", ...uniqueEvents];
+  }, [registrations]);
+
+  const teamOptions = useMemo(() => {
+    const uniqueTeams = [...new Set(registrations.map(r => r.team))];
+    return ["Todos los equipos", ...uniqueTeams];
+  }, [registrations]);
 
   // Derived
-  const eventInfo = EVENTS.find((e) => e.name === eventFilter) ?? EVENTS[0];
+  const eventInfo = useMemo(() => {
+    if (eventFilter === "Todos los eventos") {
+      return { name: "Todos los eventos", field: "", date: "", enrolled: 0, capacity: 0 };
+    }
+    const event = events.find(e => e.name === eventFilter);
+    return event ? { 
+      name: event.name, 
+      field: `${event.field}, ${event.city}`, 
+      date: event.date, 
+      enrolled: event.enrolled, 
+      capacity: event.maxCapacity 
+    } : { name: "Todos los eventos", field: "", date: "", enrolled: 0, capacity: 0 };
+  }, [eventFilter, events]);
 
   const filtered = useMemo(() => {
-    let list = [...regs];
+    let list = [...registrations];
     if (eventFilter !== "Todos los eventos") list = list.filter((r) => r.event === eventFilter);
     if (search) list = list.filter((r) =>
       r.player.toLowerCase().includes(search.toLowerCase()) ||
@@ -180,24 +205,24 @@ export default function Inscripciones() {
     );
     if (statusFilter !== "Todos") list = list.filter((r) => r.status === statusFilter);
     if (teamFilter !== "Todos los equipos") list = list.filter((r) => r.team === teamFilter);
-    if (payFilter !== "Todos") list = list.filter((r) => r.payStatus === payFilter);
+    if (payFilter !== "Todos") list = list.filter((r) => r.paymentStatus === payFilter);
     list.sort((a, b) => {
       let diff = 0;
       if (sortKey === "player")   diff = a.player.localeCompare(b.player);
       else if (sortKey === "event")    diff = a.event.localeCompare(b.event);
-      else if (sortKey === "regDate")  diff = a.regDate.localeCompare(b.regDate);
+      else if (sortKey === "regDate")  diff = a.registrationDate.localeCompare(b.registrationDate);
       else if (sortKey === "status")   diff = a.status.localeCompare(b.status);
-      else if (sortKey === "payStatus") diff = a.payStatus.localeCompare(b.payStatus);
+      else if (sortKey === "payStatus") diff = a.paymentStatus.localeCompare(b.paymentStatus);
       return sortDir === "asc" ? diff : -diff;
     });
     return list;
-  }, [regs, eventFilter, search, statusFilter, teamFilter, payFilter, sortKey, sortDir]);
+  }, [registrations, eventFilter, search, statusFilter, teamFilter, payFilter, sortKey, sortDir]);
 
   const totalPages = Math.ceil(filtered.length / PER_PAGE);
   const paginated  = filtered.slice((page - 1) * PER_PAGE, page * PER_PAGE);
 
   const totalEnrolled = eventFilter === "Todos los eventos"
-    ? regs.filter((r) => r.status !== "Cancelada" && r.status !== "Rechazada").length
+    ? registrations.filter((r) => r.status !== "Cancelada" && r.status !== "Rechazada").length
     : eventInfo.enrolled;
   const cap = eventFilter === "Todos los eventos" ? 0 : eventInfo.capacity;
 
@@ -225,27 +250,37 @@ export default function Inscripciones() {
   }
 
   function confirmReg(id: number) {
-    setRegs((rs) => rs.map((r) => r.id === id ? { ...r, status: "Confirmada" as InscStatus } : r));
+    updateRegistration(id, { status: "Confirmada" });
   }
 
   function rejectReg(id: number) {
-    setRegs((rs) => rs.map((r) => r.id === id ? { ...r, status: "Rechazada" as InscStatus } : r));
+    updateRegistration(id, { status: "Rechazada" });
   }
 
   function bulkConfirm() {
-    setRegs((rs) => rs.map((r) => selected.has(r.id) && r.status === "Pendiente" ? { ...r, status: "Confirmada" as InscStatus } : r));
+    selected.forEach(id => {
+      const reg = registrations.find(r => r.id === id);
+      if (reg && reg.status === "Pendiente") {
+        updateRegistration(id, { status: "Confirmada" });
+      }
+    });
     setSelected(new Set());
   }
 
   function bulkReject() {
-    setRegs((rs) => rs.map((r) => selected.has(r.id) && r.status === "Pendiente" ? { ...r, status: "Rechazada" as InscStatus } : r));
+    selected.forEach(id => {
+      const reg = registrations.find(r => r.id === id);
+      if (reg && reg.status === "Pendiente") {
+        updateRegistration(id, { status: "Rechazada" });
+      }
+    });
     setSelected(new Set());
   }
 
   const pageIds       = paginated.map((r) => r.id);
   const allPageSel    = pageIds.length > 0 && pageIds.every((id) => selected.has(id));
   const someSel       = pageIds.some((id) => selected.has(id)) && !allPageSel;
-  const selectedPending = [...selected].filter((id) => regs.find((r) => r.id === id)?.status === "Pendiente").length;
+  const selectedPending = [...selected].filter((id) => registrations.find((r) => r.id === id)?.status === "Pendiente").length;
 
   function SortBtn({ col }: { col: SortKey }) {
     const active = sortKey === col;
@@ -257,20 +292,13 @@ export default function Inscripciones() {
     );
   }
 
-  const pendingRegs = regs.filter((r) => r.status === "Pendiente");
+  const pendingRegs = registrations.filter((r) => r.status === "Pendiente");
 
   return (
     <div className="flex-1 flex flex-col overflow-hidden">
       {/* Page header */}
       <div className="flex items-center justify-between px-6 py-4 shrink-0"
         style={{ borderBottom: "1px solid rgba(255,255,255,0.055)", background: "#0b0b0d" }}>
-        <div>
-          <h1 style={{ fontFamily:"'Barlow Condensed', sans-serif", fontSize:24, fontWeight:700,
-            letterSpacing:"0.04em", color:"#fff", lineHeight:1 }}>Inscripciones</h1>
-          <p style={{ fontSize:12, color:"#6b7280", marginTop:3 }}>
-            Gestiona los jugadores inscritos en tus eventos
-          </p>
-        </div>
         <div className="flex items-center gap-3">
           <button className="flex items-center gap-2 rounded-lg px-3 py-2"
             style={{ background:"#141416", border:"1px solid rgba(255,255,255,0.07)", fontSize:12, color:"#9ca3af" }}>
@@ -316,10 +344,11 @@ export default function Inscripciones() {
               Filtrar por evento
             </div>
             <div className="flex flex-wrap gap-2">
-              {EVENTS.map((e) => {
-                const active = eventFilter === e.name;
+              {eventOptions.map((e) => {
+                const active = eventFilter === e;
+                const event = events.find(ev => ev.name === e);
                 return (
-                  <button key={e.name} onClick={() => { setEventFilter(e.name); setPage(1); }}
+                  <button key={e} onClick={() => { setEventFilter(e); setPage(1); }}
                     className="flex items-center gap-2 rounded-lg px-3 py-2 transition-all"
                     style={{
                       background: active ? "rgba(163,230,53,0.1)" : "#141416",
@@ -327,10 +356,10 @@ export default function Inscripciones() {
                       color: active ? LIME : "#9ca3af", fontSize:12.5,
                     }}>
                     {active && <Check size={11} />}
-                    {e.name === "Todos los eventos" ? e.name : (
+                    {e === "Todos los eventos" ? e : (
                       <>
-                        <span style={{ fontWeight: active ? 500 : 400 }}>{e.name}</span>
-                        {e.date && <span style={{ fontSize:10.5, color: active ? "rgba(163,230,53,0.7)" : "#4b5563", fontFamily:"'JetBrains Mono', monospace" }}>{e.date}</span>}
+                        <span style={{ fontWeight: active ? 500 : 400 }}>{e}</span>
+                        {event && <span style={{ fontSize:10.5, color: active ? "rgba(163,230,53,0.7)" : "#4b5563", fontFamily:"'JetBrains Mono', monospace" }}>{event.date}</span>}
                       </>
                     )}
                   </button>
@@ -450,7 +479,7 @@ export default function Inscripciones() {
                 style={{ background:"#141416", border:"1px solid rgba(255,255,255,0.07)",
                   color: teamFilter !== "Todos los equipos" ? LIME : "#9ca3af", fontSize:12,
                   height:34, outline:"none", fontFamily:"'Inter', sans-serif", cursor:"pointer" }}>
-                {TEAMS.map((t) => <option key={t} value={t} style={{ background:"#161618", color:"#e5e7eb" }}>{t}</option>)}
+                {teamOptions.map((t) => <option key={t} value={t} style={{ background:"#161618", color:"#e5e7eb" }}>{t}</option>)}
               </select>
               <ChevronDown size={11} color="#6b7280" style={{ position:"absolute", right:8, top:"50%", transform:"translateY(-50%)", pointerEvents:"none" }} />
             </div>
@@ -580,11 +609,11 @@ export default function Inscripciones() {
 
                   {/* Reg date */}
                   <div style={{ fontSize:11.5, color:"#6b7280", fontFamily:"'JetBrains Mono', monospace" }}>
-                    {reg.regDate}
+                    {reg.registrationDate}
                   </div>
 
                   {/* Pay status */}
-                  <PayBadge status={reg.payStatus} />
+                  <PayBadge status={reg.paymentStatus} />
 
                   {/* Status + inline quick actions for pending */}
                   <div>

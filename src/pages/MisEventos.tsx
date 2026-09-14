@@ -1,12 +1,15 @@
-import { useState, useMemo } from "react";
+import { useState, useMemo, useEffect } from "react";
+import { useNavigate } from "react-router-dom";
 import {
-  Search, SlidersHorizontal, MapPin, Users, Euro,
+  Search, SlidersHorizontal, MapPin, Users, Banknote,
   MoreHorizontal, PlusCircle, ChevronDown, Eye,
   Pencil, Trash2, Send, Copy, ChevronLeft, ChevronRight,
   CalendarDays, CheckCircle2, FileText, XCircle, Clock,
   ArrowUpDown, TrendingUp,
 } from "lucide-react";
-import { StatusBadge, LIME, LIME_DIM, LimeButton, GhostButton } from "../shared";
+import { StatusBadge, LIME, LIME_DIM, LimeButton, GhostButton, formatARS } from "../shared";
+import { useEventStore, useFieldStore } from "../stores";
+import { Event } from "../types";
 
 interface AirsoftEvent {
   id: number;
@@ -23,68 +26,23 @@ interface AirsoftEvent {
   modality: string;
 }
 
-const ALL_EVENTS: AirsoftEvent[] = [
-  {
-    id: 1, name: "Operación Black Hawk", field: "Campo Delta", city: "Madrid",
-    date: "24 May 2024", dateSort: "2024-05-24", enrolled: 48, capacity: 60,
-    revenue: 720, status: "Publicado", modality: "Milsim",
-    img: "https://images.unsplash.com/photo-1612872087720-bb876e2e67d1?w=96&h=64&fit=crop&auto=format",
-  },
-  {
-    id: 2, name: "Misión Red Dawn", field: "Campo Alpha", city: "Barcelona",
-    date: "31 May 2024", dateSort: "2024-05-31", enrolled: 35, capacity: 50,
-    revenue: 350, status: "Publicado", modality: "CQB",
-    img: "https://images.unsplash.com/photo-1579656381254-20f2f7b4c7b5?w=96&h=64&fit=crop&auto=format",
-  },
-  {
-    id: 3, name: "Asalto al Fuerte", field: "Campo Delta", city: "Valencia",
-    date: "07 Jun 2024", dateSort: "2024-06-07", enrolled: 20, capacity: 40,
-    revenue: 170, status: "Borrador", modality: "Woodland",
-    img: "https://images.unsplash.com/photo-1550684376-efcbd6e3f031?w=96&h=64&fit=crop&auto=format",
-  },
-  {
-    id: 4, name: "Venganza", field: "Campo Omega", city: "Toledo",
-    date: "21 Jun 2024", dateSort: "2024-06-21", enrolled: 15, capacity: 30,
-    revenue: 0, status: "Borrador", modality: "Milsim",
-    img: "https://images.unsplash.com/photo-1506905925346-21bda4d32df4?w=96&h=64&fit=crop&auto=format",
-  },
-  {
-    id: 5, name: "Blackout", field: "Campo Base Sur", city: "Valencia",
-    date: "05 Jul 2024", dateSort: "2024-07-05", enrolled: 0, capacity: 50,
-    revenue: 0, status: "Borrador", modality: "Nocturno",
-    img: "https://images.unsplash.com/photo-1465447142348-e9952c393450?w=96&h=64&fit=crop&auto=format",
-  },
-  {
-    id: 6, name: "Operación Tormenta", field: "Campo Norte", city: "Bilbao",
-    date: "15 Mar 2024", dateSort: "2024-03-15", enrolled: 52, capacity: 60,
-    revenue: 1040, status: "Finalizado", modality: "Woodland",
-    img: "https://images.unsplash.com/photo-1519689680058-324335c77eba?w=96&h=64&fit=crop&auto=format",
-  },
-  {
-    id: 7, name: "Misión Cobra", field: "Campo Sur", city: "Sevilla",
-    date: "02 Feb 2024", dateSort: "2024-02-02", enrolled: 44, capacity: 50,
-    revenue: 880, status: "Finalizado", modality: "CQB",
-    img: "https://images.unsplash.com/photo-1524230572899-a752b3835840?w=96&h=64&fit=crop&auto=format",
-  },
-  {
-    id: 8, name: "Asedio al Búnker", field: "Campo Delta", city: "Madrid",
-    date: "10 Ene 2024", dateSort: "2024-01-10", enrolled: 38, capacity: 40,
-    revenue: 570, status: "Finalizado", modality: "Milsim",
-    img: "https://images.unsplash.com/photo-1548036328-c9fa89d128fa?w=96&h=64&fit=crop&auto=format",
-  },
-  {
-    id: 9, name: "Operación Fantasma", field: "Campo Alpha", city: "Barcelona",
-    date: "18 Abr 2024", dateSort: "2024-04-18", enrolled: 0, capacity: 45,
-    revenue: 0, status: "Cancelado", modality: "Woodland",
-    img: "https://images.unsplash.com/photo-1533134486753-c833f0ed4866?w=96&h=64&fit=crop&auto=format",
-  },
-  {
-    id: 10, name: "Noche de Lobos", field: "Campo Omega", city: "Toledo",
-    date: "28 Abr 2024", dateSort: "2024-04-28", enrolled: 8, capacity: 60,
-    revenue: 0, status: "Cancelado", modality: "Nocturno",
-    img: "https://images.unsplash.com/photo-1519681393784-d120267933ba?w=96&h=64&fit=crop&auto=format",
-  },
-];
+// Helper function to convert Event to AirsoftEvent format
+function convertToAirsoftEvent(event: Event): AirsoftEvent {
+  return {
+    id: event.id,
+    name: event.name,
+    field: event.field,
+    city: event.city,
+    date: event.date,
+    dateSort: event.dateSort,
+    enrolled: event.enrolled,
+    capacity: event.maxCapacity,
+    revenue: event.revenue,
+    status: event.status,
+    img: event.img,
+    modality: event.modality,
+  };
+}
 
 const TABS = [
   { key: "todos", label: "Todos", icon: CalendarDays },
@@ -95,21 +53,21 @@ const TABS = [
 ];
 
 const STATUSES = ["Todos los estados", "Publicado", "Borrador", "Finalizado", "Cancelado"];
-const FIELDS = ["Todos los campos", "Campo Delta", "Campo Alpha", "Campo Omega", "Campo Norte", "Campo Sur", "Campo Base Sur"];
-const MODALITIES = ["Todas las modalidades", "Milsim", "CQB", "Woodland", "Nocturno"];
+const MODALITIES = ["Todas las modalidades", "Milsim", "CQB", "Woodland", "Nocturno", "Speedsoft", "Scenario", "Team deathmatch"];
 
 const PER_PAGE = 6;
 
 type SortKey = "date" | "name" | "enrolled" | "revenue";
 type SortDir = "asc" | "desc";
 
-function ActionMenu({ onClose }: { onClose: () => void }) {
+function ActionMenu({ eventId, onClose }: { eventId: number; onClose: () => void }) {
+  const navigate = useNavigate();
   const actions = [
-    { icon: Eye, label: "Ver evento", color: "#e5e7eb" },
-    { icon: Pencil, label: "Editar", color: "#e5e7eb" },
-    { icon: Send, label: "Enviar anuncio", color: "#e5e7eb" },
-    { icon: Copy, label: "Duplicar", color: "#e5e7eb" },
-    { icon: Trash2, label: "Eliminar", color: "#f87171" },
+    { icon: Eye, label: "Ver evento", color: "#e5e7eb", action: () => navigate(`/events/${eventId}`) },
+    { icon: Pencil, label: "Editar", color: "#e5e7eb", action: () => navigate(`/events/${eventId}`) },
+    { icon: Send, label: "Enviar anuncio", color: "#e5e7eb", action: () => navigate(`/events/${eventId}`) },
+    { icon: Copy, label: "Duplicar", color: "#e5e7eb", action: () => navigate(`/events/${eventId}`) },
+    { icon: Trash2, label: "Eliminar", color: "#f87171", action: () => onClose() },
   ];
   return (
     <div
@@ -122,14 +80,14 @@ function ActionMenu({ onClose }: { onClose: () => void }) {
       }}
       onMouseLeave={onClose}
     >
-      {actions.map(({ icon: Icon, label, color }) => (
+      {actions.map(({ icon: Icon, label, color, action }) => (
         <button
           key={label}
           className="flex items-center gap-2.5 w-full px-3.5 py-2.5 text-left transition-all"
           style={{ fontSize: 12.5, color, background: "transparent" }}
           onMouseEnter={(e) => { (e.currentTarget as HTMLElement).style.background = "rgba(255,255,255,0.05)"; }}
           onMouseLeave={(e) => { (e.currentTarget as HTMLElement).style.background = "transparent"; }}
-          onClick={onClose}
+          onClick={() => { action(); onClose(); }}
         >
           <Icon size={13} strokeWidth={1.5} />
           {label}
@@ -140,6 +98,9 @@ function ActionMenu({ onClose }: { onClose: () => void }) {
 }
 
 export default function MisEventos() {
+  const navigate = useNavigate();
+  const { events, setEvents } = useEventStore();
+  const { fields, setFields } = useFieldStore();
   const [tab, setTab] = useState("todos");
   const [search, setSearch] = useState("");
   const [statusFilter, setStatusFilter] = useState("Todos los estados");
@@ -150,8 +111,37 @@ export default function MisEventos() {
   const [sortDir, setSortDir] = useState<SortDir>("asc");
   const [openMenu, setOpenMenu] = useState<number | null>(null);
 
+  // Initialize events from seed data if empty
+  useEffect(() => {
+    if (events.length === 0) {
+      const seedEvents = localStorage.getItem("events");
+      if (seedEvents) {
+        setEvents(JSON.parse(seedEvents));
+      }
+    }
+  }, [events.length, setEvents]);
+
+  // Initialize fields from seed data if empty
+  useEffect(() => {
+    if (fields.length === 0) {
+      const seedFields = localStorage.getItem("fields");
+      if (seedFields) {
+        setFields(JSON.parse(seedFields));
+      }
+    }
+  }, [fields.length, setFields]);
+
+  // Convert events to AirsoftEvent format
+  const allEvents = useMemo(() => events.map(convertToAirsoftEvent), [events]);
+
+  // Dynamic field options from fieldStore
+  const fieldOptions = useMemo(() => {
+    const uniqueFields = [...new Set(allEvents.map(e => e.field))];
+    return ["Todos los campos", ...uniqueFields];
+  }, [allEvents]);
+
   const filtered = useMemo(() => {
-    let list = [...ALL_EVENTS];
+    let list = [...allEvents];
 
     if (tab === "proximos") list = list.filter((e) => e.status === "Publicado" || e.status === "Borrador");
     else if (tab === "borradores") list = list.filter((e) => e.status === "Borrador");
@@ -173,7 +163,7 @@ export default function MisEventos() {
     });
 
     return list;
-  }, [tab, search, statusFilter, fieldFilter, modalityFilter, sortKey, sortDir]);
+  }, [allEvents, tab, search, statusFilter, fieldFilter, modalityFilter, sortKey, sortDir]);
 
   const totalPages = Math.ceil(filtered.length / PER_PAGE);
   const paginated = filtered.slice((page - 1) * PER_PAGE, page * PER_PAGE);
@@ -185,22 +175,22 @@ export default function MisEventos() {
   }
 
   const tabCounts: Record<string, number> = {
-    todos: ALL_EVENTS.length,
-    proximos: ALL_EVENTS.filter((e) => e.status === "Publicado" || e.status === "Borrador").length,
-    borradores: ALL_EVENTS.filter((e) => e.status === "Borrador").length,
-    finalizados: ALL_EVENTS.filter((e) => e.status === "Finalizado").length,
-    cancelados: ALL_EVENTS.filter((e) => e.status === "Cancelado").length,
+    todos: allEvents.length,
+    proximos: allEvents.filter((e) => e.status === "Publicado" || e.status === "Borrador").length,
+    borradores: allEvents.filter((e) => e.status === "Borrador").length,
+    finalizados: allEvents.filter((e) => e.status === "Finalizado").length,
+    cancelados: allEvents.filter((e) => e.status === "Cancelado").length,
   };
 
   const summaryStats = [
-    { label: "Total", value: ALL_EVENTS.length, icon: CalendarDays, color: "#9ca3af" },
-    { label: "Publicados", value: ALL_EVENTS.filter((e) => e.status === "Publicado").length, icon: CheckCircle2, color: LIME },
-    { label: "Borradores", value: ALL_EVENTS.filter((e) => e.status === "Borrador").length, icon: FileText, color: "#9ca3af" },
-    { label: "Finalizados", value: ALL_EVENTS.filter((e) => e.status === "Finalizado").length, icon: TrendingUp, color: "#60a5fa" },
-    { label: "Cancelados", value: ALL_EVENTS.filter((e) => e.status === "Cancelado").length, icon: XCircle, color: "#f87171" },
+    { label: "Total", value: allEvents.length, icon: CalendarDays, color: "#9ca3af" },
+    { label: "Publicados", value: allEvents.filter((e) => e.status === "Publicado").length, icon: CheckCircle2, color: LIME },
+    { label: "Borradores", value: allEvents.filter((e) => e.status === "Borrador").length, icon: FileText, color: "#9ca3af" },
+    { label: "Finalizados", value: allEvents.filter((e) => e.status === "Finalizado").length, icon: TrendingUp, color: "#60a5fa" },
+    { label: "Cancelados", value: allEvents.filter((e) => e.status === "Cancelado").length, icon: XCircle, color: "#f87171" },
     {
-      label: "Ingresos totales", icon: Euro, color: LIME,
-      value: `€${ALL_EVENTS.reduce((s, e) => s + e.revenue, 0).toLocaleString("es-ES")}`,
+      label: "Ingresos totales", icon: Banknote, color: LIME,
+      value: formatARS(allEvents.reduce((s, e) => s + e.revenue, 0)),
     },
   ];
 
@@ -220,24 +210,7 @@ export default function MisEventos() {
         className="flex items-center justify-between px-6 py-4 shrink-0"
         style={{ borderBottom: "1px solid rgba(255,255,255,0.055)", background: "#0b0b0d" }}
       >
-        <div>
-          <h1
-            style={{
-              fontFamily: "'Barlow Condensed', sans-serif",
-              fontSize: 24,
-              fontWeight: 700,
-              letterSpacing: "0.04em",
-              color: "#fff",
-              lineHeight: 1,
-            }}
-          >
-            Mis eventos
-          </h1>
-          <p style={{ fontSize: 12, color: "#6b7280", marginTop: 3 }}>
-            Gestiona tus operaciones y eventos
-          </p>
-        </div>
-        <LimeButton>
+        <LimeButton onClick={() => navigate("/events/create")}>
           <PlusCircle size={14} /> Crear evento
         </LimeButton>
       </div>
@@ -394,7 +367,7 @@ export default function MisEventos() {
                   cursor: "pointer",
                 }}
               >
-                {FIELDS.map((f) => <option key={f} value={f} style={{ background: "#161618", color: "#e5e7eb" }}>{f}</option>)}
+                {fieldOptions.map((f) => <option key={f} value={f} style={{ background: "#161618", color: "#e5e7eb" }}>{f}</option>)}
               </select>
               <ChevronDown size={12} color="#6b7280" style={{ position: "absolute", right: 10, top: "50%", transform: "translateY(-50%)", pointerEvents: "none" }} />
             </div>
@@ -559,7 +532,7 @@ export default function MisEventos() {
 
                   {/* Revenue */}
                   <div style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: 13, fontWeight: 500, color: evt.revenue > 0 ? LIME : "#4b5563" }}>
-                    {evt.revenue > 0 ? `€${evt.revenue.toLocaleString("es-ES")}` : "—"}
+                    {evt.revenue > 0 ? formatARS(evt.revenue) : "—"}
                   </div>
 
                   {/* Status */}
@@ -579,7 +552,7 @@ export default function MisEventos() {
                     >
                       <MoreHorizontal size={15} />
                     </button>
-                    {openMenu === evt.id && <ActionMenu onClose={() => setOpenMenu(null)} />}
+                    {openMenu === evt.id && <ActionMenu eventId={evt.id} onClose={() => setOpenMenu(null)} />}
                   </div>
                 </div>
               );

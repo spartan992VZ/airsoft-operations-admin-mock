@@ -1,4 +1,4 @@
-import { useState, useMemo } from "react";
+import { useState, useMemo, useEffect } from "react";
 import {
   Search, ChevronDown, Users, MapPin, Calendar,
   MoreHorizontal, X, Check, ArrowUpDown,
@@ -6,6 +6,8 @@ import {
   Phone, Mail, ChevronRight, Crosshair, Hash,
 } from "lucide-react";
 import { LIME, LIME_DIM } from "../shared";
+import { useTeamStore } from "../stores";
+import { Team } from "../types";
 
 // ─── Types ──────────────────────────────────────────────────────────────────
 type TeamStatus = "Activo" | "Inactivo" | "Pendiente";
@@ -24,125 +26,22 @@ interface Team {
 }
 
 // ─── Data ───────────────────────────────────────────────────────────────────
-const TEAMS: Team[] = [
-  { id:1, name:"Escuadrón Alpha", acronym:"EΑ", color:"#1d4ed8", location:"Madrid", region:"Centro",
-    captain:"RaiderX", captainInitials:"RX", captainColor:"#1d4ed8",
-    totalMembers:12, events:8, status:"Activo", founded:"2021", modality:"Milsim",
-    contact:{ phone:"+34 612 345 678", email:"alpha@airsoft.es" },
-    description:"Equipo de élite especializado en operaciones Milsim de alta intensidad. Participan en los principales eventos nacionales con uniformes y equipo de nivel profesional.",
-    wins:5,
-    recentEvents:[
-      { name:"Operación Black Hawk", date:"24 May 2024", result:"Victoria" },
-      { name:"Misión Red Dawn",      date:"31 May 2024", result:"Victoria" },
-      { name:"Asalto al Fuerte",     date:"07 Jun 2024", result:"Participante" },
-    ],
-    members:[
-      { name:"RaiderX",        role:"Capitán",       initials:"RX", color:"#1d4ed8", joined:"Ene 2021" },
-      { name:"OperativeLegend",role:"Suboficial",     initials:"OL", color:"#15803d", joined:"Mar 2021" },
-      { name:"ReconAlpha",     role:"Francotirador",  initials:"RA", color:"#0f766e", joined:"Jun 2021" },
-      { name:"StormBreaker",   role:"Médico",         initials:"SB", color:"#4338ca", joined:"Sep 2021" },
-    ],
-  },
-  { id:2, name:"Tácticos del Sur", acronym:"TS", color:"#7c3aed", location:"Sevilla", region:"Sur",
-    captain:"CobaltMike", captainInitials:"CM", captainColor:"#4338ca",
-    totalMembers:9, events:5, status:"Activo", founded:"2022", modality:"CQB",
-    contact:{ phone:"+34 623 456 789", email:"tacticos@airsoft.es" },
-    description:"Especialistas en combate urbano y CQB. Equipo dinámico con enfoque en partidas rápidas y alta rotación táctica.",
-    wins:3,
-    recentEvents:[
-      { name:"Misión Cobra",        date:"02 Feb 2024", result:"Victoria" },
-      { name:"Operación Black Hawk", date:"24 May 2024", result:"Derrota" },
-    ],
-    members:[
-      { name:"CobaltMike", role:"Capitán", initials:"CM", color:"#4338ca", joined:"Feb 2022" },
-      { name:"Viper45",    role:"Asalto",  initials:"V4", color:"#be185d", joined:"Abr 2022" },
-      { name:"DarkMatter", role:"Apoyo",   initials:"DM", color:"#c2410c", joined:"Jul 2022" },
-    ],
-  },
-  { id:3, name:"Airsoft Brothers", acronym:"AB", color:"#be185d", location:"Barcelona", region:"Cataluña",
-    captain:"Ghost_7", captainInitials:"G7", captainColor:"#7c3aed",
-    totalMembers:15, events:11, status:"Activo", founded:"2019", modality:"Woodland",
-    contact:{ phone:"+34 634 567 890", email:"brothers@airsoft.es" },
-    description:"Uno de los equipos más veteranos de Cataluña. Con más de 5 años de experiencia en Woodland y Milsim, compiten regularmente en las ligas autonómicas.",
-    wins:7,
-    recentEvents:[
-      { name:"Misión Red Dawn",     date:"31 May 2024", result:"Victoria" },
-      { name:"Asedio al Búnker",    date:"10 Ene 2024", result:"Participante" },
-      { name:"Operación Tormenta",  date:"15 Mar 2024", result:"Victoria" },
-    ],
-    members:[
-      { name:"Ghost_7",  role:"Capitán",       initials:"G7", color:"#7c3aed", joined:"Mar 2019" },
-      { name:"NightOwl", role:"Explorador",    initials:"NO", color:"#0e7490", joined:"Jun 2019" },
-      { name:"PhantomX", role:"Asalto",        initials:"PX", color:"#1d4ed8", joined:"Ago 2019" },
-      { name:"IronBull", role:"Soporte pesado",initials:"IB", color:"#7c3aed", joined:"Ene 2020" },
-    ],
-  },
-  { id:4, name:"Delta Force", acronym:"DF", color:"#15803d", location:"Madrid", region:"Centro",
-    captain:"HunterK", captainInitials:"HK", captainColor:"#b45309",
-    totalMembers:11, events:7, status:"Activo", founded:"2020", modality:"Milsim",
-    contact:{ phone:"+34 645 678 901", email:"deltaforce@airsoft.es" },
-    description:"Equipo madrileño con fuerte disciplina táctica. Se especializan en operaciones nocturnas y escenarios de infiltración.",
-    wins:4,
-    recentEvents:[
-      { name:"Operación Black Hawk", date:"24 May 2024", result:"Victoria" },
-      { name:"Noche de Lobos",       date:"28 Abr 2024", result:"Participante" },
-    ],
-    members:[
-      { name:"HunterK",     role:"Capitán",      initials:"HK", color:"#b45309", joined:"Ene 2020" },
-      { name:"TacticalOne", role:"Médico",        initials:"T1", color:"#0f766e", joined:"Mar 2020" },
-      { name:"ViperStrike", role:"Francotirador", initials:"VS", color:"#15803d", joined:"May 2020" },
-      { name:"ZeroKelvin",  role:"Explorador",   initials:"ZK", color:"#9f1239", joined:"Ago 2020" },
-    ],
-  },
-  { id:5, name:"Operative Legion", acronym:"OL", color:"#b45309", location:"Valencia", region:"Levante",
-    captain:"OperativeLegend", captainInitials:"OL", captainColor:"#15803d",
-    totalMembers:18, events:13, status:"Activo", founded:"2018", modality:"Scenario",
-    contact:{ phone:"+34 656 789 012", email:"operative@airsoft.es" },
-    description:"El equipo más grande y activo de la plataforma. Especializados en partidas de Scenario con narrativa compleja y uniformes personalizados.",
-    wins:9,
-    recentEvents:[
-      { name:"Asalto al Fuerte",   date:"07 Jun 2024", result:"Victoria" },
-      { name:"Venganza",            date:"21 Jun 2024", result:"Victoria" },
-      { name:"Operación Tormenta", date:"15 Mar 2024", result:"Derrota" },
-    ],
-    members:[
-      { name:"OperativeLegend", role:"Capitán",        initials:"OL", color:"#15803d", joined:"May 2018" },
-      { name:"Sniper_44",       role:"Francotirador",  initials:"S4", color:"#c2410c", joined:"Jul 2018" },
-      { name:"EchoTango",       role:"Comunicaciones", initials:"ET", color:"#b45309", joined:"Sep 2018" },
-      { name:"Bravo_Six",       role:"Asalto",         initials:"B6", color:"#9f1239", joined:"Ene 2019" },
-    ],
-  },
-  { id:6, name:"Shadow Wolves", acronym:"SW", color:"#0e7490", location:"Bilbao", region:"Norte",
-    captain:"NightOwl", captainInitials:"NO", captainColor:"#0e7490",
-    totalMembers:7, events:4, status:"Pendiente", founded:"2023", modality:"Nocturno",
-    contact:{ phone:"+34 667 890 123", email:"shadow@airsoft.es" },
-    description:"Equipo emergente del norte especializado en operaciones nocturnas. Su solicitud de membresía está pendiente de verificación.",
-    wins:1,
-    recentEvents:[{ name:"Blackout", date:"05 Jul 2024", result:"Participante" }],
-    members:[
-      { name:"NightOwl", role:"Capitán",    initials:"NO", color:"#0e7490", joined:"Feb 2023" },
-      { name:"PhantomX", role:"Asalto",     initials:"PX", color:"#1d4ed8", joined:"Feb 2023" },
-      { name:"Ghost_7",  role:"Explorador", initials:"G7", color:"#7c3aed", joined:"Mar 2023" },
-    ],
-  },
-  { id:7, name:"Iron Snakes", acronym:"IS", color:"#9f1239", location:"Toledo", region:"Centro",
-    captain:"Viper45", captainInitials:"V4", captainColor:"#be185d",
-    totalMembers:6, events:3, status:"Inactivo", founded:"2021", modality:"CQB",
-    contact:{ phone:"+34 678 901 234", email:"ironsnakes@airsoft.es" },
-    description:"Equipo con actividad reducida. Tres de sus miembros principales están en proceso de reorganización. Se espera reactivación para otoño.",
-    wins:1,
-    recentEvents:[{ name:"Operación Fantasma", date:"18 Abr 2024", result:"Cancelado" }],
-    members:[
-      { name:"Viper45", role:"Capitán", initials:"V4", color:"#be185d", joined:"Mar 2021" },
-      { name:"IronBull", role:"Soporte", initials:"IB", color:"#7c3aed", joined:"May 2021" },
-    ],
-  },
-];
 
 const REGIONS    = ["Todas las regiones",   "Centro","Sur","Cataluña","Levante","Norte"];
 const MODALITIES = ["Todas las modalidades","Milsim","CQB","Woodland","Nocturno","Scenario"];
 const STATUS_LIST: TeamStatus[] = ["Activo","Inactivo","Pendiente"];
 type SortKey = "name"|"members"|"events"|"founded";
+
+// Helper function to convert Team type to page Team type
+function convertToPageTeam(team: Team): any {
+  return {
+    ...team,
+    members: team.members.map((m: any) => ({
+      ...m,
+      joined: m.joinedDate
+    }))
+  };
+}
 
 // ─── Micro-components ────────────────────────────────────────────────────────
 function TeamStatusBadge({ status }: { status: TeamStatus }) {
@@ -526,6 +425,7 @@ function TeamCard({ team, selected, onSelect, onView }: {
 
 // ─── Main ────────────────────────────────────────────────────────────────────
 export default function Equipos() {
+  const { teams, setTeams } = useTeamStore();
   const [search,          setSearch]          = useState("");
   const [statusFilter,    setStatusFilter]    = useState<TeamStatus|"Todos">("Todos");
   const [regionFilter,    setRegionFilter]    = useState("Todas las regiones");
@@ -535,8 +435,21 @@ export default function Equipos() {
   const [selected,        setSelected]        = useState<Set<number>>(new Set());
   const [detailTeam,      setDetailTeam]      = useState<Team|null>(null);
 
+  // Initialize teams from seed data if empty
+  useEffect(() => {
+    if (teams.length === 0) {
+      const seedTeams = localStorage.getItem("teams");
+      if (seedTeams) {
+        setTeams(JSON.parse(seedTeams));
+      }
+    }
+  }, [teams.length, setTeams]);
+
+  // Convert teams to page format
+  const allTeams = useMemo(() => teams.map(convertToPageTeam), [teams]);
+
   const filtered = useMemo(() => {
-    let list = [...TEAMS];
+    let list = [...allTeams];
     if (search) list = list.filter((t) =>
       t.name.toLowerCase().includes(search.toLowerCase()) ||
       t.captain.toLowerCase().includes(search.toLowerCase()) ||
@@ -554,7 +467,7 @@ export default function Equipos() {
       return sortDir==="asc" ? d : -d;
     });
     return list;
-  }, [search, statusFilter, regionFilter, modalityFilter, sortKey, sortDir]);
+  }, [allTeams, search, statusFilter, regionFilter, modalityFilter, sortKey, sortDir]);
 
   function toggleSort(k: SortKey) {
     if (sortKey===k) setSortDir((d) => d==="asc"?"desc":"asc");
@@ -566,10 +479,10 @@ export default function Equipos() {
   }
 
   const kpis = [
-    { label:"Equipos activos",     value:TEAMS.filter((t)=>t.status==="Activo").length,   color:LIME      },
-    { label:"Equipos registrados", value:TEAMS.length,                                     color:"#9ca3af" },
-    { label:"Jugadores asociados", value:TEAMS.reduce((s,t)=>s+t.totalMembers,0),          color:"#60a5fa" },
-    { label:"Eventos con equipos", value:TEAMS.reduce((s,t)=>s+t.events,0),               color:"#a78bfa" },
+    { label:"Equipos activos",     value:allTeams.filter((t)=>t.status==="Activo").length,   color:LIME      },
+    { label:"Equipos registrados", value:allTeams.length,                                     color:"#9ca3af" },
+    { label:"Jugadores asociados", value:allTeams.reduce((s,t)=>s+t.totalMembers,0),          color:"#60a5fa" },
+    { label:"Eventos con equipos", value:allTeams.reduce((s,t)=>s+t.events,0),               color:"#a78bfa" },
   ];
 
   const dotColors: Record<string,string> = { Activo:LIME, Inactivo:"#6b7280", Pendiente:"#fbbf24" };
@@ -598,13 +511,6 @@ export default function Equipos() {
         {/* Header */}
         <div className="flex items-center justify-between px-6 py-4 shrink-0"
           style={{ borderBottom:"1px solid rgba(255,255,255,0.055)", background:"#0b0b0d" }}>
-          <div>
-            <h1 style={{ fontFamily:"'Barlow Condensed',sans-serif", fontSize:24, fontWeight:700,
-                         letterSpacing:"0.04em", color:"#fff", lineHeight:1 }}>Equipos</h1>
-            <p style={{ fontSize:12, color:"#6b7280", marginTop:3 }}>
-              Gestiona los equipos y sus participantes
-            </p>
-          </div>
           <button className="flex items-center gap-2 rounded-lg px-4 py-2.5 font-semibold"
             style={{ background:LIME, color:"#000", fontSize:13 }}>
             <PlusCircle size={14}/> Crear equipo

@@ -5,3 +5,7 @@ export { RegistrationRepository } from "./registrationRepository";
 export { TeamRepository } from "./teamRepository";
 export { FieldRepository } from "./fieldRepository";
 export { PlayerRepository } from "./playerRepository";
+export { ChampionshipRepository } from "./championshipRepository";
+export { MatchRepository } from "./matchRepository";
+export { GroupRepository } from "./groupRepository";
+export { StandingRepository } from "./standingRepository";

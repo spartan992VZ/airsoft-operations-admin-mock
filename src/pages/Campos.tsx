@@ -1,4 +1,4 @@
-import { useState, useMemo } from "react";
+import { useState, useMemo, useEffect } from "react";
 import {
   Search, ChevronDown, MapPin, Calendar, Users,
   MoreHorizontal, X, Check, ArrowUpDown, PlusCircle,
@@ -6,6 +6,8 @@ import {
   Crosshair, Shield, Zap, Target, CheckCircle2, AlertCircle,
 } from "lucide-react";
 import { LIME, LIME_DIM } from "../shared";
+import { useFieldStore } from "../stores";
+import { Field } from "../types";
 
 // ─── Types ───────────────────────────────────────────────────────────────────
 type FieldStatus      = "Activo" | "Inactivo" | "Mantenimiento";
@@ -42,162 +44,6 @@ interface Field {
 }
 
 // ─── Data ────────────────────────────────────────────────────────────────────
-const FIELDS: Field[] = [
-  {
-    id: 1,
-    name: "Black Hawk Field",
-    slug: "BHF",
-    location: "Carretera A-7, km 42",
-    city: "Valencia",
-    region: "Levante",
-    status: "Activo",
-    availability: "Disponible",
-    capacity: 40,
-    modalities: ["CQB", "Woodland"],
-    events: 12,
-    reservations: 9,
-    upcomingEvent: { name: "Asalto al Fuerte", date: "07 Jun 2024", enrolled: 20, capacity: 40 },
-    manager: "Carlos Ortega",
-    managerPhone: "+34 612 111 222",
-    managerEmail: "carlos@blackhawkfield.es",
-    area: "18.000 m²",
-    founded: "2020",
-    description: "Campo mixto con zona CQB interior y zona Woodland exterior. Instalaciones de primer nivel con vestuarios, área de crónica y parking. Homologado para competición regional.",
-    img: "https://images.unsplash.com/photo-1519689680058-324335c77eba?w=400&h=220&fit=crop&auto=format",
-  },
-  {
-    id: 2,
-    name: "Delta Base",
-    slug: "DB",
-    location: "Ctra. M-600, km 12",
-    city: "Madrid",
-    region: "Centro",
-    status: "Activo",
-    availability: "Reservado",
-    capacity: 60,
-    modalities: ["Woodland", "Milsim"],
-    events: 8,
-    reservations: 6,
-    upcomingEvent: { name: "Operación Black Hawk", date: "24 May 2024", enrolled: 48, capacity: 60 },
-    manager: "Marta Sánchez",
-    managerPhone: "+34 623 333 444",
-    managerEmail: "marta@deltabase.es",
-    area: "32.000 m²",
-    founded: "2019",
-    description: "El campo más grande de la Comunidad de Madrid. Terreno natural de bosque mediterráneo con estructuras permanentes para Milsim y grandes operaciones de día completo.",
-    img: "https://images.unsplash.com/photo-1506905925346-21bda4d32df4?w=400&h=220&fit=crop&auto=format",
-  },
-  {
-    id: 3,
-    name: "Campo Alpha",
-    slug: "CA",
-    location: "Polígono Industrial Nord, nave 7",
-    city: "Barcelona",
-    region: "Cataluña",
-    status: "Activo",
-    availability: "Ocupado por evento",
-    capacity: 50,
-    modalities: ["CQB", "Speedsoft"],
-    events: 11,
-    reservations: 10,
-    upcomingEvent: { name: "Misión Red Dawn", date: "31 May 2024", enrolled: 35, capacity: 50 },
-    manager: "Pau Ferrer",
-    managerPhone: "+34 634 555 666",
-    managerEmail: "pau@campoalpha.es",
-    area: "4.200 m²",
-    founded: "2021",
-    description: "Campo indoor de alta especificidad para CQB y Speedsoft. Escenarios modulares intercambiables, iluminación LED táctica y sistema de música ambiental para inmersión total.",
-    img: "https://images.unsplash.com/photo-1550684376-efcbd6e3f031?w=400&h=220&fit=crop&auto=format",
-  },
-  {
-    id: 4,
-    name: "Campo Omega",
-    slug: "CO",
-    location: "Finca El Olivar, salida 104",
-    city: "Toledo",
-    region: "Centro",
-    status: "Activo",
-    availability: "Disponible",
-    capacity: 50,
-    modalities: ["Milsim", "Scenario"],
-    events: 4,
-    reservations: 3,
-    upcomingEvent: { name: "Venganza", date: "21 Jun 2024", enrolled: 15, capacity: 30 },
-    manager: "Javier Molina",
-    managerPhone: "+34 645 777 888",
-    managerEmail: "javier@campoOmega.es",
-    area: "25.000 m²",
-    founded: "2022",
-    description: "Campo de Scenario con narrativa ambiental propia. Vehículos militares retirados, estructuras de hormigón y zonas de bosque crean escenarios únicos para operaciones de larga duración.",
-    img: "https://images.unsplash.com/photo-1465447142348-e9952c393450?w=400&h=220&fit=crop&auto=format",
-  },
-  {
-    id: 5,
-    name: "Campo Norte",
-    slug: "CN",
-    location: "Polígono Txorierri, carretera BI-3713",
-    city: "Bilbao",
-    region: "Norte",
-    status: "Activo",
-    availability: "Disponible",
-    capacity: 70,
-    modalities: ["Woodland", "Nocturno", "Milsim"],
-    events: 6,
-    reservations: 4,
-    upcomingEvent: null,
-    manager: "Ainhoa Etxebarria",
-    managerPhone: "+34 656 888 999",
-    managerEmail: "ainhoa@camponorte.es",
-    area: "28.000 m²",
-    founded: "2021",
-    description: "Gran campo al norte con terreno variado: zona boscosa densa, pradera abierta y estructuras de madera. Ideal para operaciones nocturnas y eventos de fin de semana.",
-    img: "https://images.unsplash.com/photo-1519681393784-d120267933ba?w=400&h=220&fit=crop&auto=format",
-  },
-  {
-    id: 6,
-    name: "Campo Base Sur",
-    slug: "CBS",
-    location: "Camino Rural de Coria, km 8",
-    city: "Valencia",
-    region: "Levante",
-    status: "Activo",
-    availability: "Disponible",
-    capacity: 60,
-    modalities: ["CQB", "Milsim", "Nocturno"],
-    events: 3,
-    reservations: 1,
-    upcomingEvent: { name: "Blackout", date: "05 Jul 2024", enrolled: 0, capacity: 50 },
-    manager: "Sergio Llopis",
-    managerPhone: "+34 667 999 000",
-    managerEmail: "sergio@basesurvlc.es",
-    area: "20.000 m²",
-    founded: "2023",
-    description: "Campo reciente con diseño híbrido. Bunkers de hormigón, trincheras excavadas y zona urbana simulada. Especializado en partidas nocturnas con efectos de luz y sonido.",
-    img: "https://images.unsplash.com/photo-1533134486753-c833f0ed4866?w=400&h=220&fit=crop&auto=format",
-  },
-  {
-    id: 7,
-    name: "Campo Sur",
-    slug: "CS",
-    location: "Finca La Marisma, carretera SE-3401",
-    city: "Sevilla",
-    region: "Sur",
-    status: "Mantenimiento",
-    availability: "Reservado",
-    capacity: 45,
-    modalities: ["Woodland", "Scenario"],
-    events: 7,
-    reservations: 0,
-    upcomingEvent: null,
-    manager: "Antonio Rueda",
-    managerPhone: "+34 678 000 111",
-    managerEmail: "antonio@camposur.es",
-    area: "22.000 m²",
-    founded: "2018",
-    description: "Campo histórico del sur de España, actualmente en proceso de renovación de infraestructura. Reapertura prevista para septiembre 2024 con nuevas zonas de juego.",
-    img: "https://images.unsplash.com/photo-1548036328-c9fa89d128fa?w=400&h=220&fit=crop&auto=format",
-  },
-];
 
 const REGIONS    = ["Todas las regiones",   "Centro","Sur","Cataluña","Levante","Norte"];
 const MODALITIES = ["Todas las modalidades","Milsim","CQB","Woodland","Nocturno","Speedsoft","Scenario"];
@@ -632,6 +478,7 @@ function FieldCard({ field, selected, onSelect, onView }: {
 
 // ─── Main ────────────────────────────────────────────────────────────────────
 export default function Campos() {
+  const { fields, setFields } = useFieldStore();
   const [search,          setSearch]          = useState("");
   const [statusFilter,    setStatusFilter]    = useState<FieldStatus|"Todos">("Todos");
   const [regionFilter,    setRegionFilter]    = useState("Todas las regiones");
@@ -641,8 +488,18 @@ export default function Campos() {
   const [selected,        setSelected]        = useState<Set<number>>(new Set());
   const [detailField,     setDetailField]     = useState<Field|null>(null);
 
+  // Initialize fields from seed data if empty
+  useEffect(() => {
+    if (fields.length === 0) {
+      const seedFields = localStorage.getItem("fields");
+      if (seedFields) {
+        setFields(JSON.parse(seedFields));
+      }
+    }
+  }, [fields.length, setFields]);
+
   const filtered = useMemo(() => {
-    let list = [...FIELDS];
+    let list = [...fields];
     if (search) list = list.filter((f) =>
       f.name.toLowerCase().includes(search.toLowerCase()) ||
       f.city.toLowerCase().includes(search.toLowerCase()) ||
@@ -662,7 +519,7 @@ export default function Campos() {
       return sortDir==="asc" ? d : -d;
     });
     return list;
-  }, [search, statusFilter, regionFilter, modalityFilter, sortKey, sortDir]);
+  }, [fields, search, statusFilter, regionFilter, modalityFilter, sortKey, sortDir]);
 
   function toggleSort(k: SortKey) {
     if (sortKey===k) setSortDir((d) => d==="asc"?"desc":"asc");
@@ -674,10 +531,10 @@ export default function Campos() {
   }
 
   const kpis = [
-    { label:"Campos activos",       value:FIELDS.filter((f)=>f.status==="Activo").length,               color:LIME      },
-    { label:"Campos registrados",   value:FIELDS.length,                                                  color:"#9ca3af" },
-    { label:"Reservas próximas",    value:FIELDS.filter((f)=>f.upcomingEvent!==null).length,             color:"#fbbf24" },
-    { label:"Eventos programados",  value:FIELDS.reduce((s,f)=>s+(f.upcomingEvent?1:0),0),               color:"#a78bfa" },
+    { label:"Campos activos",       value:fields.filter((f)=>f.status==="Activo").length,               color:LIME      },
+    { label:"Campos registrados",   value:fields.length,                                                  color:"#9ca3af" },
+    { label:"Reservas próximas",    value:fields.filter((f)=>f.upcomingEvent!==null).length,             color:"#fbbf24" },
+    { label:"Eventos programados",  value:fields.reduce((s,f)=>s+(f.upcomingEvent?1:0),0),               color:"#a78bfa" },
   ];
 
   const statusList: FieldStatus[] = ["Activo","Inactivo","Mantenimiento"];
@@ -706,13 +563,6 @@ export default function Campos() {
         {/* Header */}
         <div className="flex items-center justify-between px-6 py-4 shrink-0"
           style={{ borderBottom:"1px solid rgba(255,255,255,0.055)", background:"#0b0b0d" }}>
-          <div>
-            <h1 style={{ fontFamily:"'Barlow Condensed',sans-serif", fontSize:24, fontWeight:700,
-                         letterSpacing:"0.04em", color:"#fff", lineHeight:1 }}>Campos</h1>
-            <p style={{ fontSize:12, color:"#6b7280", marginTop:3 }}>
-              Gestiona los campos y sus disponibilidades
-            </p>
-          </div>
           <button className="flex items-center gap-2 rounded-lg px-4 py-2.5 font-semibold"
             style={{ background:LIME, color:"#000", fontSize:13 }}>
             <PlusCircle size={14}/> Crear campo

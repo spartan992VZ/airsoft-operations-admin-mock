@@ -1,12 +1,15 @@
 import { useState } from "react";
+import { useNavigate } from "react-router-dom";
 import {
   Check, ChevronRight, ChevronLeft, Upload, MapPin,
-  Calendar, Clock, Users, Euro, Shield, FileText,
+  Calendar, Clock, Users, Banknote, Shield, FileText,
   Info, Crosshair, AlertCircle, CheckCircle2, Eye,
   PlusCircle, X, Image as ImageIcon, Zap, Target,
   BookOpen, Megaphone,
 } from "lucide-react";
 import { LIME, LIME_DIM, StatusBadge } from "../shared";
+import { useEventStore, useFieldStore } from "../stores";
+import { Event, EventStatus, EventType, EventLevel } from "../types";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 interface FormData {
@@ -30,24 +33,26 @@ interface FormData {
   precio: string;
   capacidadMax: string;
   minJugadores: string;
+  // Step 5
+  estado: EventStatus;
 }
 
 const INITIAL: FormData = {
   nombre: "", descripcion: "", tipoPartida: "", nivel: "", coverImage: null,
   fecha: "", horaInicio: "", horaFin: "", campo: "",
   modalidad: "", equipamiento: [], reglas: "", infoAdicional: "",
-  precio: "", capacidadMax: "", minJugadores: "",
+  precio: "", capacidadMax: "", minJugadores: "", estado: "Borrador",
 };
 
 const TIPOS = ["Milsim", "CQB", "Woodland", "Speedsoft", "Nocturno", "Scenario", "Team deathmatch"];
 const NIVELES = ["Principiante", "Intermedio", "Avanzado", "Todos los niveles"];
 const CAMPOS = [
-  { name: "Campo Delta", city: "Madrid", available: true, cap: 80 },
-  { name: "Campo Alpha", city: "Barcelona", available: true, cap: 60 },
-  { name: "Campo Omega", city: "Toledo", available: false, cap: 50 },
-  { name: "Campo Norte", city: "Bilbao", available: true, cap: 70 },
-  { name: "Campo Base Sur", city: "Valencia", available: true, cap: 60 },
-  { name: "Campo Sur", city: "Sevilla", available: false, cap: 45 },
+  { name: "Campo Delta", city: "La Plata", available: true, cap: 80 },
+  { name: "Campo Alpha", city: "Córdoba", available: true, cap: 60 },
+  { name: "Campo Omega", city: "Rosario", available: false, cap: 50 },
+  { name: "Campo Norte", city: "Santa Fe", available: true, cap: 70 },
+  { name: "Campo Base Sur", city: "Mendoza", available: true, cap: 60 },
+  { name: "Campo Sur", city: "Mar del Plata", available: false, cap: 45 },
 ];
 const EQUIPAMIENTO_OPTS = [
   "Réplica homologada", "Cargador de gas", "Protección ocular obligatoria",
@@ -61,11 +66,20 @@ const MODALIDADES_DETAIL = [
   { key: "Nocturno", desc: "Operaciones bajo oscuridad total. Uso de visión nocturna y luces tácticas." },
 ];
 
+const EVENT_STATUS_OPTIONS: EventStatus[] = ["Borrador", "Publicado", "Finalizado", "Cancelado"];
+
+function formatEventDate(value: string) {
+  if (!value) return "Sin fecha";
+  const date = new Date(`${value}T12:00:00`);
+  if (Number.isNaN(date.getTime())) return value;
+  return new Intl.DateTimeFormat("es-ES", { day: "2-digit", month: "short", year: "numeric" }).format(date);
+}
+
 const STEPS = [
   { n: 1, label: "Información básica", icon: FileText },
   { n: 2, label: "Fecha y ubicación", icon: MapPin },
   { n: 3, label: "Configuración", icon: Shield },
-  { n: 4, label: "Precio y cupos", icon: Euro },
+  { n: 4, label: "Precio y cupos", icon: Banknote },
   { n: 5, label: "Publicar", icon: Zap },
 ];
 
@@ -289,6 +303,9 @@ function Step1({ data, set }: { data: FormData; set: (k: keyof FormData, v: any)
 }
 
 function Step2({ data, set }: { data: FormData; set: (k: keyof FormData, v: any) => void }) {
+  const { fields } = useFieldStore();
+  const fieldChoices = fields.length > 0 ? fields : CAMPOS.map((c) => ({ id: c.name, name: c.name, city: c.city, available: c.available, capacity: c.cap }));
+
   return (
     <div className="grid gap-4" style={{ gridTemplateColumns: "1fr 1fr" }}>
       <div className="flex flex-col gap-4">
@@ -327,19 +344,21 @@ function Step2({ data, set }: { data: FormData; set: (k: keyof FormData, v: any)
       <div className="flex flex-col gap-4">
         <SectionCard title="Selección de campo" icon={MapPin} hint="Elige el campo donde se celebrará el evento">
           <div className="flex flex-col gap-2">
-            {CAMPOS.map((c) => {
+            {fieldChoices.map((c) => {
               const selected = data.campo === c.name;
+              const available = "available" in c ? c.available : true;
+              const cap = "capacity" in c ? c.capacity : c.capacity ?? 0;
               return (
                 <button
                   key={c.name}
-                  onClick={() => c.available && set("campo", c.name)}
-                  disabled={!c.available}
+                  onClick={() => available && set("campo", c.name)}
+                  disabled={!available}
                   className="flex items-center gap-3 rounded-lg p-3 text-left transition-all"
                   style={{
                     background: selected ? "rgba(163,230,53,0.08)" : "#141416",
                     border: selected ? `1px solid rgba(163,230,53,0.3)` : "1px solid rgba(255,255,255,0.07)",
-                    opacity: c.available ? 1 : 0.45,
-                    cursor: c.available ? "pointer" : "not-allowed",
+                    opacity: available ? 1 : 0.45,
+                    cursor: available ? "pointer" : "not-allowed",
                   }}
                 >
                   <div className="rounded-md flex items-center justify-center shrink-0" style={{ width: 32, height: 32, background: selected ? "rgba(163,230,53,0.12)" : "#1e1e20", border: `1px solid ${selected ? "rgba(163,230,53,0.2)" : "rgba(255,255,255,0.06)"}` }}>
@@ -347,10 +366,10 @@ function Step2({ data, set }: { data: FormData; set: (k: keyof FormData, v: any)
                   </div>
                   <div className="flex-1 min-w-0">
                     <div style={{ fontSize: 13, fontWeight: 500, color: selected ? "#fff" : "#d1d5db" }}>{c.name}</div>
-                    <div style={{ fontSize: 11, color: "#6b7280" }}>{c.city} · Cap. {c.cap} jugadores</div>
+                    <div style={{ fontSize: 11, color: "#6b7280" }}>{c.city} · Cap. {cap} jugadores</div>
                   </div>
                   <div>
-                    {c.available ? (
+                    {available ? (
                       <span className="rounded px-2 py-0.5" style={{ fontSize: 10, background: "rgba(163,230,53,0.1)", color: LIME, fontFamily: "'JetBrains Mono', monospace" }}>Disponible</span>
                     ) : (
                       <span className="rounded px-2 py-0.5" style={{ fontSize: 10, background: "rgba(248,113,113,0.1)", color: "#f87171", fontFamily: "'JetBrains Mono', monospace" }}>Ocupado</span>
@@ -435,11 +454,11 @@ function Step4({ data, set }: { data: FormData; set: (k: keyof FormData, v: any)
   return (
     <div className="grid gap-4" style={{ gridTemplateColumns: "1fr 360px" }}>
       <div className="flex flex-col gap-4">
-        <SectionCard title="Precio de inscripción" icon={Euro} hint="Define el coste por jugador">
+        <SectionCard title="Precio de inscripción" icon={Banknote} hint="Define el valor por jugador">
           <div className="mb-5">
-            <Label required>Precio por jugador (€)</Label>
+            <Label required>Precio por jugador (ARS)</Label>
             <div className="relative">
-              <span style={{ position: "absolute", left: 12, top: "50%", transform: "translateY(-50%)", color: "#6b7280", fontSize: 14 }}>€</span>
+              <span style={{ position: "absolute", left: 12, top: "50%", transform: "translateY(-50%)", color: "#6b7280", fontSize: 14 }}>$</span>
               <input
                 type="number"
                 min="0"
@@ -474,7 +493,7 @@ function Step4({ data, set }: { data: FormData; set: (k: keyof FormData, v: any)
                   fontWeight: 500,
                 }}
               >
-                €{p}
+                ${p.toLocaleString("es-AR")}
               </button>
             ))}
           </div>
@@ -516,14 +535,14 @@ function Step4({ data, set }: { data: FormData; set: (k: keyof FormData, v: any)
             <div className="rounded-xl p-4 text-center" style={{ background: "#0e0e10", border: "1px solid rgba(163,230,53,0.1)" }}>
               <div style={{ fontSize: 11, color: "#6b7280", marginBottom: 6, textTransform: "uppercase", letterSpacing: "0.1em" }}>Ingresos máximos</div>
               <div style={{ fontFamily: "'Barlow Condensed', sans-serif", fontSize: 38, fontWeight: 700, color: LIME, lineHeight: 1 }}>
-                {ingresosPot > 0 ? `€${ingresosPot.toLocaleString("es-ES")}` : "—"}
+                {ingresosPot > 0 ? `$${ingresosPot.toLocaleString("es-AR")}` : "—"}
               </div>
-              <div style={{ fontSize: 11.5, color: "#6b7280", marginTop: 4 }}>Con {cap || "?"} jugadores a €{precio || "??"}/jugador</div>
+              <div style={{ fontSize: 11.5, color: "#6b7280", marginTop: 4 }}>Con {cap || "?"} jugadores a ${precio ? precio.toLocaleString("es-AR") : "??"}/jugador</div>
             </div>
             <div className="rounded-xl p-4 text-center" style={{ background: "#0e0e10", border: "1px solid rgba(255,255,255,0.06)" }}>
               <div style={{ fontSize: 11, color: "#6b7280", marginBottom: 6, textTransform: "uppercase", letterSpacing: "0.1em" }}>Ingresos mínimos</div>
               <div style={{ fontFamily: "'Barlow Condensed', sans-serif", fontSize: 28, fontWeight: 700, color: "#9ca3af", lineHeight: 1 }}>
-                {ingresosMin > 0 ? `€${ingresosMin.toLocaleString("es-ES")}` : "—"}
+                {ingresosMin > 0 ? `$${ingresosMin.toLocaleString("es-AR")}` : "—"}
               </div>
               <div style={{ fontSize: 11.5, color: "#6b7280", marginTop: 4 }}>Con {minJ || "?"} jugadores (mínimo)</div>
             </div>
@@ -543,7 +562,7 @@ function Step4({ data, set }: { data: FormData; set: (k: keyof FormData, v: any)
           <div style={{ fontSize: 12, fontWeight: 500, color: "#9ca3af", marginBottom: 12 }}>Resumen del evento</div>
           <div className="space-y-2.5">
             {[
-              { label: "Precio", val: precio > 0 ? `€${precio}` : "—" },
+              { label: "Precio", val: precio > 0 ? `$${precio.toLocaleString("es-AR")}` : "—" },
               { label: "Capacidad", val: cap > 0 ? `${cap} jugadores` : "—" },
               { label: "Mínimo", val: minJ > 0 ? `${minJ} jugadores` : "—" },
               { label: "Cupos disp.", val: cap > 0 ? `${cap} disponibles` : "—" },
@@ -561,7 +580,8 @@ function Step4({ data, set }: { data: FormData; set: (k: keyof FormData, v: any)
 }
 
 function Step5({ data }: { data: FormData }) {
-  const campo = CAMPOS.find((c) => c.name === data.campo);
+  const { fields } = useFieldStore();
+  const selectedField = fields.find((field) => field.name === data.campo) ?? null;
 
   const checks = [
     { label: "Nombre del evento", ok: !!data.nombre },
@@ -607,7 +627,7 @@ function Step5({ data }: { data: FormData }) {
                 )}
                 {data.campo && (
                   <span className="flex items-center gap-1.5" style={{ fontSize: 12, color: "#9ca3af" }}>
-                    <MapPin size={11} /> {data.campo}, {campo?.city}
+                    <MapPin size={11} /> {data.campo}, {selectedField?.city ?? "campo"}
                   </span>
                 )}
               </div>
@@ -623,7 +643,7 @@ function Step5({ data }: { data: FormData }) {
 
             <div className="grid grid-cols-4 gap-3">
               {[
-                { icon: Euro, label: "Precio", val: data.precio ? `€${data.precio}` : "—" },
+                { icon: Banknote, label: "Precio", val: data.precio ? `$${Number(data.precio).toLocaleString("es-AR")}` : "—" },
                 { icon: Users, label: "Capacidad", val: data.capacidadMax ? `${data.capacidadMax} jug.` : "—" },
                 { icon: Target, label: "Nivel", val: data.nivel || "—" },
                 { icon: Shield, label: "Modalidad", val: data.modalidad || data.tipoPartida || "—" },
@@ -689,13 +709,29 @@ function Step5({ data }: { data: FormData }) {
 
         <div className="rounded-xl p-4" style={{ background: "#101012", border: "1px solid rgba(255,255,255,0.07)" }}>
           <div style={{ fontSize: 12, fontWeight: 500, color: "#9ca3af", marginBottom: 10 }}>Estado de publicación</div>
-          <div className="flex items-center justify-between">
-            <span style={{ fontSize: 13, color: "#e5e7eb" }}>Publicar inmediatamente</span>
-            <StatusBadge status={allOk ? "Publicado" : "Borrador"} />
+          <div className="flex flex-col gap-3">
+            <Label>Estado y publicación</Label>
+            <select
+              value={data.estado}
+              onChange={(e) => set("estado", e.target.value as EventStatus)}
+              style={{
+                width: "100%", background: "#141416", border: "1px solid rgba(255,255,255,0.08)",
+                borderRadius: 8, padding: "9px 12px", color: "#e5e7eb", fontSize: 13,
+                outline: "none", fontFamily: "'Inter', sans-serif",
+              }}
+            >
+              {EVENT_STATUS_OPTIONS.map((status) => (
+                <option key={status} value={status} style={{ background: "#161618", color: "#e5e7eb" }}>{status}</option>
+              ))}
+            </select>
+            <div className="flex items-center justify-between">
+              <span style={{ fontSize: 13, color: "#e5e7eb" }}>Vista previa</span>
+              <StatusBadge status={data.estado} />
+            </div>
           </div>
           <p style={{ fontSize: 11.5, color: "#4b5563", marginTop: 8, lineHeight: 1.5 }}>
             {allOk
-              ? "El evento será visible para todos los jugadores al publicar."
+              ? "El evento quedará con este estado una vez se guarde."
               : "Guarda como borrador para completarlo más tarde."}
           </p>
         </div>
@@ -706,55 +742,64 @@ function Step5({ data }: { data: FormData }) {
 
 // ─── Main component ───────────────────────────────────────────────────────────
 export default function CrearEvento() {
+  const navigate = useNavigate();
+  const { addEvent, setSelectedEvent } = useEventStore();
+  const { fields } = useFieldStore();
   const [step, setStep] = useState(1);
   const [data, setData] = useState<FormData>(INITIAL);
-  const [published, setPublished] = useState(false);
 
   function set(key: keyof FormData, value: any) {
     setData((d) => ({ ...d, [key]: value }));
   }
 
-  if (published) {
-    return (
-      <div className="flex-1 flex flex-col overflow-hidden">
-        <div className="flex items-center justify-between px-6 py-4 shrink-0" style={{ borderBottom: "1px solid rgba(255,255,255,0.055)", background: "#0b0b0d" }}>
-          <div>
-            <h1 style={{ fontFamily: "'Barlow Condensed', sans-serif", fontSize: 24, fontWeight: 700, letterSpacing: "0.04em", color: "#fff", lineHeight: 1 }}>Crear evento</h1>
-            <p style={{ fontSize: 12, color: "#6b7280", marginTop: 3 }}>Crea y configura una nueva operación de Airsoft.</p>
-          </div>
-        </div>
-        <div className="flex-1 flex items-center justify-center" style={{ background: "#080809" }}>
-          <div className="text-center">
-            <div className="rounded-full flex items-center justify-center mx-auto mb-6" style={{ width: 72, height: 72, background: "rgba(163,230,53,0.1)", border: "2px solid rgba(163,230,53,0.3)" }}>
-              <CheckCircle2 size={32} style={{ color: LIME }} />
-            </div>
-            <h2 style={{ fontFamily: "'Barlow Condensed', sans-serif", fontSize: 32, fontWeight: 700, color: "#fff", letterSpacing: "0.04em", marginBottom: 8 }}>
-              ¡Evento publicado!
-            </h2>
-            <p style={{ fontSize: 14, color: "#9ca3af", marginBottom: 24 }}>
-              <strong style={{ color: LIME }}>{data.nombre || "Tu evento"}</strong> ya está visible para los jugadores.
-            </p>
-            <button
-              onClick={() => { setPublished(false); setStep(1); setData(INITIAL); }}
-              className="rounded-lg px-6 py-3"
-              style={{ background: LIME, color: "#000", fontWeight: 600, fontSize: 14 }}
-            >
-              Crear otro evento
-            </button>
-          </div>
-        </div>
-      </div>
-    );
+  function handleSave(nextStatus: EventStatus = data.estado) {
+    const trimmedName = data.nombre.trim();
+    if (!trimmedName) return;
+
+    const selectedField = fields.find((field) => field.name === data.campo) ?? null;
+    const nextId = Date.now();
+    const eventToCreate: Event = {
+      id: nextId,
+      name: trimmedName,
+      description: data.descripcion.trim() || "Sin descripción añadida.",
+      type: (data.tipoPartida as EventType) || "Milsim",
+      level: (data.nivel as EventLevel) || "Todos los niveles",
+      coverImage: data.coverImage,
+      date: formatEventDate(data.fecha),
+      dateSort: data.fecha || "",
+      startTime: data.horaInicio || "09:00",
+      endTime: data.horaFin || "18:00",
+      fieldId: selectedField?.id ?? 1,
+      field: selectedField?.name ?? (data.campo || "Campo sin asignar"),
+      city: selectedField?.city ?? "",
+      modality: data.modalidad || data.tipoPartida || "Milsim",
+      equipment: data.equipamiento,
+      rules: data.reglas || "Reglas estándar del campo.",
+      additionalInfo: data.infoAdicional || "",
+      price: Number(data.precio) || 0,
+      maxCapacity: Number(data.capacidadMax) || 0,
+      minPlayers: Number(data.minJugadores) || 0,
+      status: nextStatus,
+      enrolled: 0,
+      revenue: 0,
+      img: data.coverImage || selectedField?.img || "https://images.unsplash.com/photo-1519689680058-324335c77eba?w=1200&h=800&fit=crop&auto=format",
+    };
+
+    addEvent(eventToCreate);
+    setSelectedEvent(eventToCreate);
+
+    if (nextStatus === "Publicado") {
+      navigate(`/events/${eventToCreate.id}`);
+      return;
+    }
+
+    navigate("/events");
   }
 
   return (
     <div className="flex-1 flex flex-col overflow-hidden">
       {/* Page header */}
       <div className="flex items-center justify-between px-6 py-4 shrink-0" style={{ borderBottom: "1px solid rgba(255,255,255,0.055)", background: "#0b0b0d" }}>
-        <div>
-          <h1 style={{ fontFamily: "'Barlow Condensed', sans-serif", fontSize: 24, fontWeight: 700, letterSpacing: "0.04em", color: "#fff", lineHeight: 1 }}>Crear evento</h1>
-          <p style={{ fontSize: 12, color: "#6b7280", marginTop: 3 }}>Crea y configura una nueva operación de Airsoft.</p>
-        </div>
         <button className="rounded-lg px-3 py-2 text-sm transition-all" style={{ background: "#141416", border: "1px solid rgba(255,255,255,0.07)", color: "#9ca3af", fontSize: 12 }}>
           <span>Guardar borrador</span>
         </button>
@@ -853,11 +898,11 @@ export default function CrearEvento() {
             </button>
           ) : (
             <button
-              onClick={() => setPublished(true)}
+              onClick={() => handleSave(data.estado === "Publicado" ? "Publicado" : data.estado)}
               className="flex items-center gap-2 rounded-lg px-6 py-2.5 transition-all"
               style={{ background: LIME, color: "#000", fontSize: 13, fontWeight: 700 }}
             >
-              <Zap size={14} /> Publicar evento
+              <Zap size={14} /> {data.estado === "Publicado" ? "Publicar evento" : "Guardar evento"}
             </button>
           )}
         </div>

@@ -1,6 +1,10 @@
 export const LIME = "#a3e635";
 export const LIME_DIM = "#84cc16";
 
+export function formatARS(value: number) {
+  return `$${value.toLocaleString("es-AR")}`;
+}
+
 export const NAV_ITEMS = [
   { label: "Dashboard" },
   { label: "Mis eventos" },
