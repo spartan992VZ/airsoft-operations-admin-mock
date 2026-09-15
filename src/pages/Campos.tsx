@@ -1,4 +1,4 @@
-import { useState, useMemo, useEffect } from "react";
+import { useState, useMemo } from "react";
 import {
   Search, ChevronDown, MapPin, Calendar, Users,
   MoreHorizontal, X, Check, ArrowUpDown, PlusCircle,
@@ -7,7 +7,6 @@ import {
 } from "lucide-react";
 import { LIME, LIME_DIM } from "../shared";
 import { useFieldStore } from "../stores";
-import { Field } from "../types";
 
 // ─── Types ───────────────────────────────────────────────────────────────────
 type FieldStatus      = "Activo" | "Inactivo" | "Mantenimiento";
@@ -45,7 +44,7 @@ interface Field {
 
 // ─── Data ────────────────────────────────────────────────────────────────────
 
-const REGIONS    = ["Todas las regiones",   "Centro","Sur","Cataluña","Levante","Norte"];
+const REGIONS    = ["Todas las regiones",   "CABA","Buenos Aires","Córdoba","Santa Fe","Mendoza","Entre Ríos"];
 const MODALITIES = ["Todas las modalidades","Milsim","CQB","Woodland","Nocturno","Speedsoft","Scenario"];
 type SortKey = "name" | "events" | "reservations" | "capacity" | "founded";
 
@@ -478,7 +477,7 @@ function FieldCard({ field, selected, onSelect, onView }: {
 
 // ─── Main ────────────────────────────────────────────────────────────────────
 export default function Campos() {
-  const { fields, setFields } = useFieldStore();
+  const { fields } = useFieldStore();
   const [search,          setSearch]          = useState("");
   const [statusFilter,    setStatusFilter]    = useState<FieldStatus|"Todos">("Todos");
   const [regionFilter,    setRegionFilter]    = useState("Todas las regiones");
@@ -487,16 +486,6 @@ export default function Campos() {
   const [sortDir,         setSortDir]         = useState<"asc"|"desc">("desc");
   const [selected,        setSelected]        = useState<Set<number>>(new Set());
   const [detailField,     setDetailField]     = useState<Field|null>(null);
-
-  // Initialize fields from seed data if empty
-  useEffect(() => {
-    if (fields.length === 0) {
-      const seedFields = localStorage.getItem("fields");
-      if (seedFields) {
-        setFields(JSON.parse(seedFields));
-      }
-    }
-  }, [fields.length, setFields]);
 
   const filtered = useMemo(() => {
     let list = [...fields];

@@ -1,13 +1,9 @@
 import { useMemo, useState } from "react";
 import { Routes, Route, Link, useLocation } from "react-router-dom";
 import {
-  LayoutDashboard, CalendarDays, PlusCircle, ClipboardList,
-  Users, MapPin, MessageSquare, BarChart2, TrendingUp,
-  Settings, LogOut, HelpCircle, Bell, ChevronDown,
-  ArrowUpRight, MoreHorizontal, Calendar, Shield,
-  Crosshair, Target, Radio, ChevronRight, ChevronLeft,
-  Clock, Banknote, UserCheck, AlertCircle, CheckCircle2,
-  XCircle, FileText, Send, Eye,
+  LogOut, HelpCircle, Bell, ChevronDown, ArrowUpRight, MoreHorizontal,
+  Calendar, CalendarDays, ClipboardList, Shield, Crosshair, Target, ChevronRight, ChevronLeft,
+  Clock, Banknote, UserCheck, CheckCircle2, MapPin, Users, Eye,
 } from "lucide-react";
 import {
   LineChart, Line, BarChart, Bar, XAxis, YAxis, CartesianGrid,
@@ -16,152 +12,18 @@ import {
 import { LIME, LIME_DIM, NAV_ITEMS, CHART_TOOLTIP, formatARS } from "./shared";
 import { StatusBadge } from "./components/shared";
 import { useEventStore, useRegistrationStore } from "./stores";
+import { useHydrateMockData } from "./application/mockData/useHydrateMockData";
+import { selectDashboardSummary, selectRecentRegistrations, selectUpcomingEvents } from "./application/dashboard/dashboardSelectors";
+import { dashboardChartFallback, dashboardEventStateColors, dashboardFeaturedEvents, dashboardFields, dashboardMonthlyRevenue, dashboardQuickActions, dashboardRecentActivity } from "./application/dashboard/dashboardPresentation";
+import { getActivePage, navigationIcons, navigationRoutes, pageTitles } from "./application/navigation";
 import MisEventos from "./pages/MisEventos";
 import CrearEvento from "./pages/CrearEvento";
-import EventoDetalle from "./pages/EventoDetalle";
+import EventDetail from "./pages/EventDetail";
 import Inscripciones from "./pages/Inscripciones";
 import Equipos from "./pages/Equipos";
 import Campos from "./pages/Campos";
 
-// ─── Nav icon map ─────────────────────────────────────────────────────────────
-const NAV_ICONS: Record<string, React.ElementType> = {
-  Dashboard: LayoutDashboard,
-  "Mis eventos": CalendarDays,
-  "Crear evento": PlusCircle,
-  Inscripciones: ClipboardList,
-  Equipos: Users,
-  Campos: MapPin,
-  Mensajes: MessageSquare,
-  Reportes: BarChart2,
-  Estadísticas: TrendingUp,
-  Configuración: Settings,
-};
-
-// ─── Route mapping ─────────────────────────────────────────────────────────────
-const ROUTE_MAP: Record<string, string> = {
-  "Dashboard": "/",
-  "Mis eventos": "/events",
-  "Crear evento": "/events/create",
-  "Inscripciones": "/registrations",
-  "Equipos": "/teams",
-  "Campos": "/fields",
-};
-
 // ─── Dashboard data ───────────────────────────────────────────────────────────
-const kpis = [
-  { label: "Eventos creados", value: "8", sub: "Ver todos", icon: CalendarDays, trend: "+2 este mes", up: true },
-  { label: "Inscripciones totales", value: "356", sub: "Ver detalle", icon: ClipboardList, trend: "+34 esta semana", up: true },
-  { label: "Asistencia promedio", value: "92%", sub: "Ver detalle", icon: UserCheck, trend: "+3% vs anterior", up: true },
-  { label: "Ingresos totales", value: "$1.240.000", sub: "Ver detalle", icon: Banknote, trend: "Resumen demo", up: true },
-  { label: "Campos utilizados", value: "4", sub: "Ver detalle", icon: Target, trend: "Sin cambios", up: false },
-];
-
-const upcomingEvents = [
-  {
-    id: 1, name: "Operación Black Hawk", field: "Campo Delta, La Plata",
-    date: "24", month: "OCT", enrolled: 48, capacity: 60, income: "$720.000", status: "Publicado",
-    img: "https://images.unsplash.com/photo-1612872087720-bb876e2e67d1?w=120&h=80&fit=crop&auto=format",
-  },
-  {
-    id: 2, name: "Misión Red Dawn", field: "Campo Alpha, Córdoba",
-    date: "31", month: "OCT", enrolled: 35, capacity: 50, income: "$525.000", status: "Publicado",
-    img: "https://images.unsplash.com/photo-1579656381254-20f2f7b4c7b5?w=120&h=80&fit=crop&auto=format",
-  },
-  {
-    id: 3, name: "Asalto al Fuerte", field: "Campo Delta, Valencia",
-    date: "07", month: "NOV", enrolled: 20, capacity: 40, income: "$300.000", status: "Borrador",
-    img: "https://images.unsplash.com/photo-1550684376-efcbd6e3f031?w=120&h=80&fit=crop&auto=format",
-  },
-];
-
-const quickActions = [
-  { icon: PlusCircle, label: "Crear nuevo evento", desc: "Publicar en minutos", route: "/events/create" },
-  { icon: ClipboardList, label: "Gestionar inscripciones", desc: "Aprobar pendientes", route: "/registrations" },
-  { icon: Send, label: "Enviar anuncio", desc: "A todos los inscritos", route: "/events" },
-  { icon: BarChart2, label: "Ver reportes", desc: "Análisis detallado", route: "/events" },
-  { icon: TrendingUp, label: "Ver estadísticas", desc: "Métricas del mes", route: "/" },
-  { icon: MapPin, label: "Gestionar campos", desc: "Disponibilidad", route: "/fields" },
-];
-
-const recentActivity = [
-  { icon: UserCheck, text: "Nueva inscripción: RaiderX", sub: "Operación Black Hawk", time: "hace 10 min", color: LIME },
-  { icon: Shield, text: "Nueva cuenta: OperativeLegend", sub: "Se registró como jugador", time: "hace 25 min", color: "#60a5fa" },
-  { icon: CheckCircle2, text: "Cargo aprobado: Campo Omega", sub: "Pago de $85.000 confirmado", time: "hace 1 hora", color: LIME },
-  { icon: FileText, text: "Registro recibido", sub: "campo@titanes-airsoft.es", time: "hace 2 horas", color: "#f59e0b" },
-  { icon: Users, text: "Equipo creado: Delta Force", sub: "12 miembros activos", time: "hace 3 horas", color: "#a78bfa" },
-  { icon: AlertCircle, text: "Campo sin confirmar", sub: "Asalto al Fuerte – Valencia", time: "hace 5 horas", color: "#f87171" },
-];
-
-const inscriptions = [
-  { player: "RaiderX", avatar: "RX", event: "Operación Black Hawk", date: "24/05/2024", status: "Confirmada" },
-  { player: "Ghost_7", avatar: "G7", event: "Misión Red Dawn", date: "31/05/2024", status: "Confirmada" },
-  { player: "Viper45", avatar: "V4", event: "Asalto al Fuerte", date: "07/06/2024", status: "Pendiente" },
-  { player: "HunterK", avatar: "HK", event: "Operación Black Hawk", date: "24/05/2024", status: "Confirmada" },
-  { player: "TacticalOne", avatar: "T1", event: "Misión Red Dawn", date: "31/05/2024", status: "Pendiente" },
-];
-
-const chartData = [
-  { mes: "Dic", inscritos: 22, asistencia: 19 },
-  { mes: "Ene", inscritos: 38, asistencia: 32 },
-  { mes: "Feb", inscritos: 45, asistencia: 41 },
-  { mes: "Mar", inscritos: 52, asistencia: 48 },
-  { mes: "Abr", inscritos: 61, asistencia: 55 },
-  { mes: "May", inscritos: 78, asistencia: 71 },
-  { mes: "Jun", inscritos: 48, asistencia: 43 },
-];
-
-const ingresosMes = [
-  { mes: "Ene", ingresos: 210 },
-  { mes: "Feb", ingresos: 340 },
-  { mes: "Mar", ingresos: 290 },
-  { mes: "Abr", ingresos: 480 },
-  { mes: "May", ingresos: 560 },
-  { mes: "Jun", ingresos: 390 },
-  { mes: "Jul", ingresos: 180 },
-];
-
-const eventosPorEstado = [
-  { name: "Publicados", value: 4, color: LIME },
-  { name: "Borradores", value: 2, color: "#404040" },
-  { name: "Finalizados", value: 1, color: "#60a5fa" },
-  { name: "Cancelados", value: 1, color: "#f87171" },
-];
-
-const campos = [
-  { name: "Campo Delta, La Plata", eventos: 8, pct: 100 },
-  { name: "Campo Alpha, Córdoba", eventos: 6, pct: 75 },
-  { name: "Campo Omega, Rosario", eventos: 4, pct: 50 },
-  { name: "Campo Base Sur, Valencia", eventos: 3, pct: 37 },
-];
-
-const destacados = [
-  {
-    name: "Operación Black Hawk", field: "Campo Delta, La Plata", date: "24 OCT",
-    enrolled: 48, capacity: 60, status: "Publicado",
-    img: "https://images.unsplash.com/photo-1612872087720-bb876e2e67d1?w=280&h=160&fit=crop&auto=format",
-  },
-  {
-    name: "Misión Red Dawn", field: "Campo Alpha, Córdoba", date: "31 OCT",
-    enrolled: 35, capacity: 50, status: "Publicado",
-    img: "https://images.unsplash.com/photo-1579656381254-20f2f7b4c7b5?w=280&h=160&fit=crop&auto=format",
-  },
-  {
-    name: "Asalto al Fuerte", field: "Campo Delta, Valencia", date: "07 JUN",
-    enrolled: 20, capacity: 40, status: "Borrador",
-    img: "https://images.unsplash.com/photo-1550684376-efcbd6e3f031?w=280&h=160&fit=crop&auto=format",
-  },
-  {
-    name: "Venganza", field: "Campo Omega, Rosario", date: "21 NOV",
-    enrolled: 15, capacity: 30, status: "Borrador",
-    img: "https://images.unsplash.com/photo-1506905925346-21bda4d32df4?w=280&h=160&fit=crop&auto=format",
-  },
-  {
-    name: "Blackout", field: "Campo Base Sur, Valencia", date: "05 JUL",
-    enrolled: 0, capacity: 50, status: "Borrador",
-    img: "https://images.unsplash.com/photo-1465447142348-e9952c393450?w=280&h=160&fit=crop&auto=format",
-  },
-];
-
 // ─── Dashboard component ──────────────────────────────────────────────────────
 function Dashboard() {
   const { events } = useEventStore();
@@ -169,40 +31,20 @@ function Dashboard() {
   const [featuredPage, setFeaturedPage] = useState(0);
   const perPage = 4;
 
-  const publishedEvents = useMemo(
-    () => [...events].filter((event) => event.status === "Publicado").sort((a, b) => a.dateSort.localeCompare(b.dateSort)),
-    [events]
-  );
-
-  const upcomingEvents = useMemo(
-    () =>
-      [...events]
-        .filter((event) => event.status === "Publicado" || event.status === "Borrador")
-        .sort((a, b) => a.dateSort.localeCompare(b.dateSort))
-        .slice(0, 3),
-    [events]
-  );
+  const dashboardSummary = useMemo(() => selectDashboardSummary(events, registrations), [events, registrations]);
+  const upcomingEvents = useMemo(() => selectUpcomingEvents(events), [events]);
 
   const dashboardKpis = useMemo(() => {
-    const totalEnrolled = events.reduce((sum, event) => sum + event.enrolled, 0);
-    const totalCapacity = events.reduce((sum, event) => sum + event.maxCapacity, 0);
-    const pendingInscripciones = registrations.filter((registration) => registration.status === "Pendiente").length;
-    const pendingPayments = registrations.filter((registration) => registration.paymentStatus === "Pendiente").length;
-    const totalRevenue = events.reduce((sum, event) => sum + event.revenue, 0);
-
     return [
-      { label: "Eventos creados", value: String(events.length), sub: "Ver todos", icon: CalendarDays, trend: `${publishedEvents.length} publicados`, up: true },
-      { label: "Inscripciones", value: String(registrations.length), sub: "Ver detalle", icon: ClipboardList, trend: `${pendingInscripciones} pendientes`, up: pendingInscripciones <= 5 },
-      { label: "Capacidad / asistencia", value: `${totalEnrolled}/${totalCapacity}`, sub: "Ver detalle", icon: UserCheck, trend: `${totalCapacity ? Math.round((totalEnrolled / totalCapacity) * 100) : 0}%`, up: true },
-      { label: "Ingresos totales", value: formatARS(totalRevenue), sub: "Ver detalle", icon: Banknote, trend: `${publishedEvents.length} eventos activos`, up: true },
-      { label: "Operaciones", value: String(pendingInscripciones + pendingPayments), sub: "Revisión", icon: Target, trend: `${pendingPayments} pagos`, up: pendingInscripciones + pendingPayments === 0 },
+      { label: "Eventos creados", value: String(dashboardSummary.eventCount), sub: "Ver todos", icon: CalendarDays, trend: `${dashboardSummary.publishedEventCount} publicados`, up: true },
+      { label: "Inscripciones", value: String(dashboardSummary.registrationCount), sub: "Ver detalle", icon: ClipboardList, trend: `${dashboardSummary.pendingRegistrationCount} pendientes`, up: dashboardSummary.pendingRegistrationCount <= 5 },
+      { label: "Capacidad / asistencia", value: `${dashboardSummary.enrolledCount}/${dashboardSummary.capacityCount}`, sub: "Ver detalle", icon: UserCheck, trend: `${dashboardSummary.capacityCount ? Math.round((dashboardSummary.enrolledCount / dashboardSummary.capacityCount) * 100) : 0}%`, up: true },
+      { label: "Ingresos totales", value: formatARS(dashboardSummary.revenue), sub: "Ver detalle", icon: Banknote, trend: `${dashboardSummary.publishedEventCount} eventos activos`, up: true },
+      { label: "Operaciones", value: String(dashboardSummary.pendingRegistrationCount + dashboardSummary.pendingPaymentCount), sub: "Revisión", icon: Target, trend: `${dashboardSummary.pendingPaymentCount} pagos`, up: dashboardSummary.pendingRegistrationCount + dashboardSummary.pendingPaymentCount === 0 },
     ];
-  }, [events, registrations, publishedEvents.length]);
+  }, [dashboardSummary]);
 
-  const recentRegistrations = useMemo(
-    () => [...registrations].sort((a, b) => b.registrationDate.localeCompare(a.registrationDate)).slice(0, 5),
-    [registrations]
-  );
+  const recentRegistrations = useMemo(() => selectRecentRegistrations(registrations), [registrations]);
 
   const dashboardChartData = useMemo(() => {
     const monthMap = new Map<string, { mes: string; inscritos: number; asistencia: number }>();
@@ -210,7 +52,7 @@ function Dashboard() {
     events.forEach((event) => {
       const date = new Date(`${event.dateSort || event.date}T12:00:00`);
       if (Number.isNaN(date.getTime())) return;
-      const mes = new Intl.DateTimeFormat("es-ES", { month: "short" })
+      const mes = new Intl.DateTimeFormat("es-AR", { month: "short" })
         .format(date)
         .replace(".", "")
         .slice(0, 3)
@@ -224,8 +66,8 @@ function Dashboard() {
     return Array.from(monthMap.values()).slice(-6);
   }, [events]);
 
-  const totalPages = Math.ceil(destacados.length / perPage);
-  const visibleDestacados = destacados.slice(featuredPage * perPage, featuredPage * perPage + perPage);
+  const totalPages = Math.ceil(dashboardFeaturedEvents.length / perPage);
+  const visibleDestacados = dashboardFeaturedEvents.slice(featuredPage * perPage, featuredPage * perPage + perPage);
 
   return (
     <main className="flex-1 overflow-y-auto p-5" style={{ background: "#080809" }}>
@@ -261,7 +103,7 @@ function Dashboard() {
           {upcomingEvents.map((evt, i) => {
             const date = new Date(`${evt.dateSort || evt.date}T12:00:00`);
             const day = Number.isNaN(date.getTime()) ? "" : String(date.getDate()).padStart(2, "0");
-            const month = Number.isNaN(date.getTime()) ? "" : new Intl.DateTimeFormat("es-ES", { month: "short" }).format(date).replace(".", "").slice(0, 3).toUpperCase();
+            const month = Number.isNaN(date.getTime()) ? "" : new Intl.DateTimeFormat("es-AR", { month: "short" }).format(date).replace(".", "").slice(0, 3).toUpperCase();
             return (
             <div key={evt.id} className="flex items-center gap-3 px-4 py-3" style={{ borderBottom: i < upcomingEvents.length - 1 ? "1px solid rgba(255,255,255,0.04)" : "none" }}>
               <div className="flex flex-col items-center justify-center rounded-lg shrink-0" style={{ width: 44, height: 44, background: "#1a1a1c", border: "1px solid rgba(255,255,255,0.07)" }}>
@@ -300,7 +142,7 @@ function Dashboard() {
             <h2 style={{ fontFamily: "'Barlow Condensed', sans-serif", fontSize: 15, fontWeight: 600, letterSpacing: "0.04em", color: "#e5e7eb" }}>Acciones rápidas</h2>
           </div>
           <div className="p-3 grid grid-cols-2 gap-2">
-            {quickActions.map(({ icon: Icon, label, desc, route }) => (
+            {dashboardQuickActions.map(({ icon: Icon, label, desc, route }) => (
               <Link key={label} to={route} className="flex flex-col items-center justify-center rounded-lg p-3 text-center transition-all" style={{ background: "#141416", border: "1px solid rgba(255,255,255,0.07)", minHeight: 80, textDecoration: "none" }}>
                 <div className="rounded-lg flex items-center justify-center mb-2" style={{ width: 32, height: 32, background: "rgba(163,230,53,0.08)", border: "1px solid rgba(163,230,53,0.1)" }}>
                   <Icon size={14} style={{ color: LIME }} strokeWidth={1.5} />
@@ -319,10 +161,10 @@ function Dashboard() {
             <button style={{ fontSize: 11, color: LIME }}>Ver toda</button>
           </div>
           <div className="px-4 py-2">
-            {recentActivity.map((a, i) => {
+            {dashboardRecentActivity.map((a, i) => {
               const Icon = a.icon;
               return (
-                <div key={i} className="flex items-start gap-3 py-2.5" style={{ borderBottom: i < recentActivity.length - 1 ? "1px solid rgba(255,255,255,0.04)" : "none" }}>
+                <div key={i} className="flex items-start gap-3 py-2.5" style={{ borderBottom: i < dashboardRecentActivity.length - 1 ? "1px solid rgba(255,255,255,0.04)" : "none" }}>
                   <div className="rounded-md flex items-center justify-center shrink-0 mt-0.5" style={{ width: 28, height: 28, background: `${a.color}18`, border: `1px solid ${a.color}22` }}>
                     <Icon size={13} style={{ color: a.color }} strokeWidth={1.5} />
                   </div>
@@ -372,7 +214,7 @@ function Dashboard() {
             </div>
             <div className="px-2 pt-2 pb-2" style={{ height: 150 }}>
               <ResponsiveContainer width="100%" height={150}>
-                <LineChart data={dashboardChartData.length ? dashboardChartData : chartData} margin={{ top: 4, right: 12, left: -20, bottom: 0 }}>
+                <LineChart data={dashboardChartData.length ? dashboardChartData : dashboardChartFallback} margin={{ top: 4, right: 12, left: -20, bottom: 0 }}>
                   <CartesianGrid stroke="rgba(255,255,255,0.04)" strokeDasharray="0" vertical={false} />
                   <XAxis dataKey="mes" tick={{ fill: "#6b7280", fontSize: 10, fontFamily: "'JetBrains Mono', monospace" }} axisLine={false} tickLine={false} />
                   <YAxis tick={{ fill: "#6b7280", fontSize: 10, fontFamily: "'JetBrains Mono', monospace" }} axisLine={false} tickLine={false} />
@@ -396,11 +238,11 @@ function Dashboard() {
             </div>
             <div className="px-2 pt-2 pb-3" style={{ height: 130 }}>
               <ResponsiveContainer width="100%" height={130}>
-                <BarChart data={ingresosMes} margin={{ top: 4, right: 12, left: -20, bottom: 0 }} barSize={22}>
+                <BarChart data={dashboardMonthlyRevenue} margin={{ top: 4, right: 12, left: -20, bottom: 0 }} barSize={22}>
                   <CartesianGrid stroke="rgba(255,255,255,0.04)" strokeDasharray="0" vertical={false} />
                   <XAxis dataKey="mes" tick={{ fill: "#6b7280", fontSize: 10, fontFamily: "'JetBrains Mono', monospace" }} axisLine={false} tickLine={false} />
                   <YAxis tick={{ fill: "#6b7280", fontSize: 10, fontFamily: "'JetBrains Mono', monospace" }} axisLine={false} tickLine={false} />
-                  <Tooltip {...CHART_TOOLTIP} formatter={(v: number) => [formatARS(v), "Ingresos"]} />
+                  <Tooltip {...CHART_TOOLTIP} formatter={(value) => [formatARS(Number(value ?? 0)), "Ingresos"]} />
                   <Bar dataKey="ingresos" fill={LIME} radius={[3, 3, 0, 0]} opacity={0.85} />
                 </BarChart>
               </ResponsiveContainer>
@@ -418,8 +260,8 @@ function Dashboard() {
               <div style={{ height: 120, position: "relative" }}>
                 <ResponsiveContainer width="100%" height={120}>
                   <PieChart>
-                    <Pie data={eventosPorEstado} cx="50%" cy="50%" innerRadius={36} outerRadius={52} paddingAngle={2} dataKey="value" strokeWidth={0}>
-                      {eventosPorEstado.map((entry, index) => <Cell key={index} fill={entry.color} />)}
+                    <Pie data={dashboardEventStateColors.map((entry) => ({ ...entry, value: events.filter((event) => event.status === entry.status).length }))} cx="50%" cy="50%" innerRadius={36} outerRadius={52} paddingAngle={2} dataKey="value" strokeWidth={0}>
+                      {dashboardEventStateColors.map((entry, index) => <Cell key={index} fill={entry.color} />)}
                     </Pie>
                   </PieChart>
                 </ResponsiveContainer>
@@ -429,18 +271,13 @@ function Dashboard() {
                 </div>
               </div>
               <div className="mt-2 space-y-1.5">
-                {[
-                  { name: "Publicados", value: events.filter((event) => event.status === "Publicado").length, color: LIME },
-                  { name: "Borradores", value: events.filter((event) => event.status === "Borrador").length, color: "#404040" },
-                  { name: "Finalizados", value: events.filter((event) => event.status === "Finalizado").length, color: "#60a5fa" },
-                  { name: "Cancelados", value: events.filter((event) => event.status === "Cancelado").length, color: "#f87171" },
-                ].map((e) => (
+                {dashboardEventStateColors.map((e) => (
                   <div key={e.name} className="flex items-center justify-between">
                     <div className="flex items-center gap-2">
                       <div style={{ width: 7, height: 7, borderRadius: 2, background: e.color }} />
                       <span style={{ fontSize: 11, color: "#9ca3af" }}>{e.name}</span>
                     </div>
-                    <span style={{ fontSize: 11, color: "#e5e7eb", fontFamily: "'JetBrains Mono', monospace", fontWeight: 500 }}>{e.value}</span>
+                    <span style={{ fontSize: 11, color: "#e5e7eb", fontFamily: "'JetBrains Mono', monospace", fontWeight: 500 }}>{events.filter((event) => event.status === e.status).length}</span>
                   </div>
                 ))}
               </div>
@@ -452,7 +289,7 @@ function Dashboard() {
               <button style={{ fontSize: 11, color: LIME }}>Ver todos</button>
             </div>
             <div className="px-4 py-3 space-y-3">
-              {campos.map((c) => (
+              {dashboardFields.map((c) => (
                 <div key={c.name}>
                   <div className="flex justify-between mb-1">
                     <span style={{ fontSize: 11.5, color: "#d1d5db" }}>{c.name}</span>
@@ -523,29 +360,11 @@ function AppShell() {
   const location = useLocation();
   const [featuredPage, setFeaturedPage] = useState(0);
 
+  useHydrateMockData();
+
   // Get active page from route
-  const getActivePageFromPath = (path: string): string => {
-    if (path === "/") return "Dashboard";
-    if (path === "/events") return "Mis eventos";
-    if (path === "/events/create") return "Crear evento";
-    if (path === "/registrations") return "Inscripciones";
-    if (path === "/teams") return "Equipos";
-    if (path === "/fields") return "Campos";
-    return "Dashboard";
-  };
-
-  const activePage = getActivePageFromPath(location.pathname);
-
-  const pageTitle: Record<string, { title: string; sub: string }> = {
-    Dashboard: { title: "Dashboard", sub: "Resumen general de tus eventos y operaciones" },
-    "Mis eventos": { title: "Mis eventos", sub: "Gestiona tus operaciones y eventos" },
-    "Crear evento": { title: "Crear evento", sub: "Crea y configura una nueva operación de Airsoft." },
-    Inscripciones: { title: "Inscripciones", sub: "Gestiona las inscripciones y pagos" },
-    Equipos: { title: "Equipos", sub: "Gestiona los equipos y miembros" },
-    Campos: { title: "Campos", sub: "Gestiona los campos de juego" },
-  };
-
-  const current = pageTitle[activePage] ?? { title: activePage, sub: "" };
+  const activePage = getActivePage(location.pathname);
+  const current = pageTitles[activePage] ?? { title: activePage, sub: "" };
 
   return (
     <div
@@ -574,8 +393,8 @@ function AppShell() {
 
         <nav className="flex-1 px-3 pb-3 overflow-y-auto">
           {NAV_ITEMS.map(({ label, badge }) => {
-            const Icon = NAV_ICONS[label] ?? LayoutDashboard;
-            const route = ROUTE_MAP[label];
+            const Icon = navigationIcons[label] ?? navigationIcons.Dashboard;
+            const route = navigationRoutes[label];
             const active = activePage === label;
             if (!route) return null;
             return (
@@ -664,7 +483,7 @@ function AppShell() {
           <Route path="/" element={<Dashboard />} />
           <Route path="/events" element={<MisEventos />} />
           <Route path="/events/create" element={<CrearEvento />} />
-          <Route path="/events/:id" element={<EventoDetalle />} />
+          <Route path="/events/:id" element={<EventDetail />} />
           <Route path="/registrations" element={<Inscripciones />} />
           <Route path="/teams" element={<Equipos />} />
           <Route path="/fields" element={<Campos />} />

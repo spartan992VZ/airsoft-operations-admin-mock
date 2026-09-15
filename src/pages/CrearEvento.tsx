@@ -7,7 +7,7 @@ import {
   PlusCircle, X, Image as ImageIcon, Zap, Target,
   BookOpen, Megaphone,
 } from "lucide-react";
-import { LIME, LIME_DIM, StatusBadge } from "../shared";
+import { LIME, LIME_DIM, StatusBadge, formatARS } from "../shared";
 import { useEventStore, useFieldStore } from "../stores";
 import { Event, EventStatus, EventType, EventLevel } from "../types";
 
@@ -72,7 +72,7 @@ function formatEventDate(value: string) {
   if (!value) return "Sin fecha";
   const date = new Date(`${value}T12:00:00`);
   if (Number.isNaN(date.getTime())) return value;
-  return new Intl.DateTimeFormat("es-ES", { day: "2-digit", month: "short", year: "numeric" }).format(date);
+  return new Intl.DateTimeFormat("es-AR", { day: "2-digit", month: "short", year: "numeric" }).format(date);
 }
 
 const STEPS = [
@@ -347,7 +347,7 @@ function Step2({ data, set }: { data: FormData; set: (k: keyof FormData, v: any)
             {fieldChoices.map((c) => {
               const selected = data.campo === c.name;
               const available = "available" in c ? c.available : true;
-              const cap = "capacity" in c ? c.capacity : c.capacity ?? 0;
+              const cap = c.capacity ?? 0;
               return (
                 <button
                   key={c.name}
@@ -437,7 +437,7 @@ function Step3({ data, set }: { data: FormData; set: (k: keyof FormData, v: any)
 
       <SectionCard title="Información adicional para jugadores" icon={BookOpen} hint="Detalles logísticos, acceso y recomendaciones">
         <Textarea value={data.infoAdicional} onChange={(v) => set("infoAdicional", v)} rows={4}
-          placeholder="Ej: Parking disponible en la entrada principal. Llevar comida y agua para el día completo. No se admiten menores de 18 años sin acompañante. Acceso por la A-4 salida 42, coordenadas de punto de encuentro: 40.4168° N, 3.7038° O." />
+          placeholder="Ej: Estacionamiento disponible en la entrada. Llevar comida y agua para el día completo. Acceso por Ruta Provincial 25, km 4. Punto de encuentro señalizado." />
         <Helper>Esta información aparecerá en el correo de confirmación de los jugadores inscritos.</Helper>
       </SectionCard>
     </div>
@@ -479,7 +479,7 @@ function Step4({ data, set }: { data: FormData; set: (k: keyof FormData, v: any)
           </div>
 
           <div className="grid grid-cols-3 gap-2">
-            {[10, 15, 20, 25, 30, 35].map((p) => (
+            {[10000, 15000, 20000, 25000, 30000, 35000].map((p) => (
               <button
                 key={p}
                 onClick={() => set("precio", String(p))}
@@ -493,7 +493,7 @@ function Step4({ data, set }: { data: FormData; set: (k: keyof FormData, v: any)
                   fontWeight: 500,
                 }}
               >
-                ${p.toLocaleString("es-AR")}
+                {formatARS(p)}
               </button>
             ))}
           </div>
@@ -535,14 +535,14 @@ function Step4({ data, set }: { data: FormData; set: (k: keyof FormData, v: any)
             <div className="rounded-xl p-4 text-center" style={{ background: "#0e0e10", border: "1px solid rgba(163,230,53,0.1)" }}>
               <div style={{ fontSize: 11, color: "#6b7280", marginBottom: 6, textTransform: "uppercase", letterSpacing: "0.1em" }}>Ingresos máximos</div>
               <div style={{ fontFamily: "'Barlow Condensed', sans-serif", fontSize: 38, fontWeight: 700, color: LIME, lineHeight: 1 }}>
-                {ingresosPot > 0 ? `$${ingresosPot.toLocaleString("es-AR")}` : "—"}
+                {ingresosPot > 0 ? formatARS(ingresosPot) : "—"}
               </div>
-              <div style={{ fontSize: 11.5, color: "#6b7280", marginTop: 4 }}>Con {cap || "?"} jugadores a ${precio ? precio.toLocaleString("es-AR") : "??"}/jugador</div>
+              <div style={{ fontSize: 11.5, color: "#6b7280", marginTop: 4 }}>Con {cap || "?"} jugadores a {precio ? formatARS(precio) : "??"}/jugador</div>
             </div>
             <div className="rounded-xl p-4 text-center" style={{ background: "#0e0e10", border: "1px solid rgba(255,255,255,0.06)" }}>
               <div style={{ fontSize: 11, color: "#6b7280", marginBottom: 6, textTransform: "uppercase", letterSpacing: "0.1em" }}>Ingresos mínimos</div>
               <div style={{ fontFamily: "'Barlow Condensed', sans-serif", fontSize: 28, fontWeight: 700, color: "#9ca3af", lineHeight: 1 }}>
-                {ingresosMin > 0 ? `$${ingresosMin.toLocaleString("es-AR")}` : "—"}
+                {ingresosMin > 0 ? formatARS(ingresosMin) : "—"}
               </div>
               <div style={{ fontSize: 11.5, color: "#6b7280", marginTop: 4 }}>Con {minJ || "?"} jugadores (mínimo)</div>
             </div>
@@ -562,7 +562,7 @@ function Step4({ data, set }: { data: FormData; set: (k: keyof FormData, v: any)
           <div style={{ fontSize: 12, fontWeight: 500, color: "#9ca3af", marginBottom: 12 }}>Resumen del evento</div>
           <div className="space-y-2.5">
             {[
-              { label: "Precio", val: precio > 0 ? `$${precio.toLocaleString("es-AR")}` : "—" },
+              { label: "Precio", val: precio > 0 ? formatARS(precio) : "—" },
               { label: "Capacidad", val: cap > 0 ? `${cap} jugadores` : "—" },
               { label: "Mínimo", val: minJ > 0 ? `${minJ} jugadores` : "—" },
               { label: "Cupos disp.", val: cap > 0 ? `${cap} disponibles` : "—" },
@@ -579,7 +579,7 @@ function Step4({ data, set }: { data: FormData; set: (k: keyof FormData, v: any)
   );
 }
 
-function Step5({ data }: { data: FormData }) {
+function Step5({ data, set }: { data: FormData; set: (k: keyof FormData, v: any) => void }) {
   const { fields } = useFieldStore();
   const selectedField = fields.find((field) => field.name === data.campo) ?? null;
 
@@ -643,7 +643,7 @@ function Step5({ data }: { data: FormData }) {
 
             <div className="grid grid-cols-4 gap-3">
               {[
-                { icon: Banknote, label: "Precio", val: data.precio ? `$${Number(data.precio).toLocaleString("es-AR")}` : "—" },
+                { icon: Banknote, label: "Precio", val: data.precio ? formatARS(Number(data.precio)) : "—" },
                 { icon: Users, label: "Capacidad", val: data.capacidadMax ? `${data.capacidadMax} jug.` : "—" },
                 { icon: Target, label: "Nivel", val: data.nivel || "—" },
                 { icon: Shield, label: "Modalidad", val: data.modalidad || data.tipoPartida || "—" },
@@ -800,7 +800,7 @@ export default function CrearEvento() {
     <div className="flex-1 flex flex-col overflow-hidden">
       {/* Page header */}
       <div className="flex items-center justify-between px-6 py-4 shrink-0" style={{ borderBottom: "1px solid rgba(255,255,255,0.055)", background: "#0b0b0d" }}>
-        <button className="rounded-lg px-3 py-2 text-sm transition-all" style={{ background: "#141416", border: "1px solid rgba(255,255,255,0.07)", color: "#9ca3af", fontSize: 12 }}>
+        <button onClick={() => handleSave("Borrador")} className="rounded-lg px-3 py-2 text-sm transition-all" style={{ background: "#141416", border: "1px solid rgba(255,255,255,0.07)", color: "#9ca3af", fontSize: 12 }}>
           <span>Guardar borrador</span>
         </button>
       </div>
@@ -859,7 +859,7 @@ export default function CrearEvento() {
         {step === 2 && <Step2 data={data} set={set} />}
         {step === 3 && <Step3 data={data} set={set} />}
         {step === 4 && <Step4 data={data} set={set} />}
-        {step === 5 && <Step5 data={data} />}
+        {step === 5 && <Step5 data={data} set={set} />}
       </div>
 
       {/* Footer nav */}
@@ -869,6 +869,7 @@ export default function CrearEvento() {
       >
         <div className="flex items-center gap-3">
           <button
+            onClick={() => handleSave("Borrador")}
             className="rounded-lg px-4 py-2 text-sm transition-all"
             style={{ background: "#141416", border: "1px solid rgba(255,255,255,0.07)", color: "#9ca3af", fontSize: 12 }}
           >

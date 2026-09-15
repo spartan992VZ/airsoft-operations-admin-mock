@@ -1,4 +1,4 @@
-import { useState, useMemo, useEffect } from "react";
+import { useState, useMemo } from "react";
 import {
   Search, ChevronDown, Users, MapPin, Calendar,
   MoreHorizontal, X, Check, ArrowUpDown,
@@ -7,7 +7,7 @@ import {
 } from "lucide-react";
 import { LIME, LIME_DIM } from "../shared";
 import { useTeamStore } from "../stores";
-import { Team } from "../types";
+import { Team as DomainTeam } from "../types";
 
 // ─── Types ──────────────────────────────────────────────────────────────────
 type TeamStatus = "Activo" | "Inactivo" | "Pendiente";
@@ -27,13 +27,13 @@ interface Team {
 
 // ─── Data ───────────────────────────────────────────────────────────────────
 
-const REGIONS    = ["Todas las regiones",   "Centro","Sur","Cataluña","Levante","Norte"];
+const REGIONS    = ["Todas las regiones",   "CABA","Buenos Aires","Córdoba","Santa Fe","Mendoza","Entre Ríos"];
 const MODALITIES = ["Todas las modalidades","Milsim","CQB","Woodland","Nocturno","Scenario"];
 const STATUS_LIST: TeamStatus[] = ["Activo","Inactivo","Pendiente"];
 type SortKey = "name"|"members"|"events"|"founded";
 
 // Helper function to convert Team type to page Team type
-function convertToPageTeam(team: Team): any {
+function convertToPageTeam(team: DomainTeam): Team {
   return {
     ...team,
     members: team.members.map((m: any) => ({
@@ -425,7 +425,7 @@ function TeamCard({ team, selected, onSelect, onView }: {
 
 // ─── Main ────────────────────────────────────────────────────────────────────
 export default function Equipos() {
-  const { teams, setTeams } = useTeamStore();
+  const { teams } = useTeamStore();
   const [search,          setSearch]          = useState("");
   const [statusFilter,    setStatusFilter]    = useState<TeamStatus|"Todos">("Todos");
   const [regionFilter,    setRegionFilter]    = useState("Todas las regiones");
@@ -434,16 +434,6 @@ export default function Equipos() {
   const [sortDir,         setSortDir]         = useState<"asc"|"desc">("desc");
   const [selected,        setSelected]        = useState<Set<number>>(new Set());
   const [detailTeam,      setDetailTeam]      = useState<Team|null>(null);
-
-  // Initialize teams from seed data if empty
-  useEffect(() => {
-    if (teams.length === 0) {
-      const seedTeams = localStorage.getItem("teams");
-      if (seedTeams) {
-        setTeams(JSON.parse(seedTeams));
-      }
-    }
-  }, [teams.length, setTeams]);
 
   // Convert teams to page format
   const allTeams = useMemo(() => teams.map(convertToPageTeam), [teams]);

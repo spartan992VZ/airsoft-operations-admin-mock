@@ -945,7 +945,197 @@ export const seedData = {
   ] as Player[],
 };
 
+const ARGENTINA_CITIES = ["La Plata", "Córdoba", "Rosario", "Santa Fe", "Mendoza", "Mar del Plata", "CABA"];
+const ARGENTINA_REGIONS = ["Buenos Aires", "Córdoba", "Santa Fe", "Mendoza", "Entre Ríos", "CABA"];
+const EVENT_DATES: Record<number, { date: string; dateSort: string }> = {
+  1: { date: "24/10/2026", dateSort: "2026-10-24" },
+  2: { date: "31/10/2026", dateSort: "2026-10-31" },
+  3: { date: "07/11/2026", dateSort: "2026-11-07" },
+  4: { date: "21/11/2026", dateSort: "2026-11-21" },
+  5: { date: "05/12/2026", dateSort: "2026-12-05" },
+  6: { date: "15/08/2026", dateSort: "2026-08-15" },
+  7: { date: "02/07/2026", dateSort: "2026-07-02" },
+  8: { date: "10/06/2026", dateSort: "2026-06-10" },
+  9: { date: "18/09/2026", dateSort: "2026-09-18" },
+  10: { date: "28/09/2026", dateSort: "2026-09-28" },
+};
+const EVENT_PRICES: Record<number, number> = { 1: 35000, 2: 30000, 3: 28000, 4: 35000, 5: 40000, 6: 45000, 7: 30000, 8: 35000, 9: 35000, 10: 40000 };
+const ARGENTINA_PHONES = ["+54 9 11 5555 0101", "+54 9 351 555 0122", "+54 9 341 555 0133", "+54 9 261 555 0144", "+54 9 342 555 0155", "+54 9 223 555 0166"];
+
+function localizeSeedData(): void {
+  const fieldNames: Record<number, string> = {
+    1: "Campo Delta",
+    2: "Campo Delta Base",
+    3: "Campo Alpha",
+    4: "Campo Omega",
+    5: "Campo Norte",
+    6: "Campo Base Sur",
+    7: "Campo Sur",
+  };
+  const cityByField: Record<number, string> = {
+    1: "La Plata",
+    2: "Pilar",
+    3: "Córdoba",
+    4: "Rosario",
+    5: "Santa Fe",
+    6: "Mendoza",
+    7: "Mar del Plata",
+  };
+  const regionByField: Record<number, string> = {
+    1: "Buenos Aires",
+    2: "Buenos Aires",
+    3: "Córdoba",
+    4: "Santa Fe",
+    5: "Santa Fe",
+    6: "Mendoza",
+    7: "Buenos Aires",
+  };
+
+  seedData.fields.forEach((field) => {
+    field.name = fieldNames[field.id];
+    field.city = cityByField[field.id];
+    field.region = regionByField[field.id];
+    field.location = [
+      "Acceso por Ruta Provincial 25, km 4",
+      "Zona Industrial Pilar, acceso norte",
+      "Camino Rural Los Aromos, Córdoba",
+      "Parque Industrial Oeste, Rosario",
+      "Acceso Norte, Santa Fe",
+      "Camino de los Viñedos, Mendoza",
+      "Finca Los Acantilados, Mar del Plata",
+    ][field.id - 1];
+    field.managerPhone = ARGENTINA_PHONES[(field.id - 1) % ARGENTINA_PHONES.length];
+    field.managerEmail = `${field.manager.toLowerCase().replace(/\s+/g, ".")}@airsoft.com.ar`;
+    if (field.upcomingEvent) {
+      const localizedDate = EVENT_DATES[field.upcomingEvent.eventId];
+      if (localizedDate) field.upcomingEvent.date = localizedDate.date;
+    }
+  });
+
+  seedData.events.forEach((event) => {
+    const localizedDate = EVENT_DATES[event.id];
+    const field = seedData.fields.find((item) => item.id === event.fieldId);
+    if (localizedDate) {
+      event.date = localizedDate.date;
+      event.dateSort = localizedDate.dateSort;
+    }
+    if (field) {
+      event.field = field.name;
+      event.city = field.city;
+    }
+    event.price = EVENT_PRICES[event.id];
+    event.revenue = event.status === "Publicado" || event.status === "Finalizado" ? event.enrolled * event.price : 0;
+  });
+
+  seedData.registrations.forEach((registration, index) => {
+    const eventDate = EVENT_DATES[registration.eventId];
+    if (eventDate) registration.eventDate = eventDate.date;
+    registration.registrationDate = `${String(5 + (index % 20)).padStart(2, "0")}/09/2026`;
+    registration.phone = ARGENTINA_PHONES[index % ARGENTINA_PHONES.length];
+    registration.email = `${registration.player.toLowerCase().replace(/_/g, ".")}@airsoft.com.ar`;
+  });
+
+  seedData.teams.forEach((team, index) => {
+    team.location = ARGENTINA_CITIES[index % ARGENTINA_CITIES.length];
+    team.region = ARGENTINA_REGIONS[index % ARGENTINA_REGIONS.length];
+    team.contact.phone = ARGENTINA_PHONES[index % ARGENTINA_PHONES.length];
+    team.contact.email = `${team.name.toLowerCase().replace(/\s+/g, ".")}@airsoft.com.ar`;
+    team.description = team.description
+      .replace("Cataluña", "Santa Fe")
+      .replace("madrileño", "bonaerense")
+      .replace("del norte", "de Mendoza")
+      .replace("ligas autonómicas", "ligas regionales");
+    team.recentEvents.forEach((teamEvent) => {
+      const localizedDate = EVENT_DATES[teamEvent.eventId];
+      if (localizedDate) teamEvent.date = localizedDate.date;
+    });
+  });
+
+  seedData.players.forEach((player, index) => {
+    player.phone = ARGENTINA_PHONES[index % ARGENTINA_PHONES.length];
+    player.email = `${player.username.toLowerCase().replace(/_/g, ".")}@airsoft.com.ar`;
+  });
+}
+
+localizeSeedData();
+
+const LOCALIZATION_VERSION = "argentina-2026-09";
+
+function mergeLocalizedCollection<T extends { id: number }>(key: string, localize: (item: T) => Partial<T>): void {
+  const raw = localStorage.getItem(key);
+  if (!raw) return;
+
+  try {
+    const storedItems = JSON.parse(raw) as T[];
+    localStorage.setItem(
+      key,
+      JSON.stringify(storedItems.map((item) => ({ ...item, ...localize(item) })))
+    );
+  } catch {
+    localStorage.removeItem(key);
+  }
+}
+
+function mergeLocalizedStore<T extends { id: number }>(key: string, property: string, localize: (item: T) => Partial<T>): void {
+  const raw = localStorage.getItem(key);
+  if (!raw) return;
+
+  try {
+    const storedState = JSON.parse(raw) as { state?: Record<string, T[]> };
+    const items = storedState.state?.[property];
+    if (!items) return;
+
+    storedState.state![property] = items.map((item) => ({ ...item, ...localize(item) }));
+    localStorage.setItem(key, JSON.stringify(storedState));
+  } catch {
+    localStorage.removeItem(key);
+  }
+}
+
+function migrateExistingMockData(): void {
+  if (localStorage.getItem("airsoft-localization-version") === LOCALIZATION_VERSION) return;
+
+  const localizedEventById = new Map(seedData.events.map((event) => [event.id, event]));
+  const localizedRegistrationById = new Map(seedData.registrations.map((registration) => [registration.id, registration]));
+  const localizedTeamById = new Map(seedData.teams.map((team) => [team.id, team]));
+  const localizedFieldById = new Map(seedData.fields.map((field) => [field.id, field]));
+  const localizedPlayerById = new Map(seedData.players.map((player) => [player.id, player]));
+
+  const localizeEvent = (event: Event): Partial<Event> => {
+    const localized = localizedEventById.get(event.id);
+    return localized ? { date: localized.date, dateSort: localized.dateSort, field: localized.field, city: localized.city, price: localized.price, revenue: localized.revenue } : {};
+  };
+  const localizeRegistration = (registration: Registration): Partial<Registration> => {
+    const localized = localizedRegistrationById.get(registration.id);
+    return localized ? { eventDate: localized.eventDate, registrationDate: localized.registrationDate, phone: localized.phone, email: localized.email } : {};
+  };
+  const localizeTeam = (team: Team): Partial<Team> => {
+    const localized = localizedTeamById.get(team.id);
+    return localized ? { location: localized.location, region: localized.region, contact: localized.contact, description: localized.description, recentEvents: localized.recentEvents } : {};
+  };
+  const localizeField = (field: Field): Partial<Field> => {
+    const localized = localizedFieldById.get(field.id);
+    return localized ? { location: localized.location, city: localized.city, region: localized.region, managerPhone: localized.managerPhone, managerEmail: localized.managerEmail, upcomingEvent: localized.upcomingEvent, description: localized.description } : {};
+  };
+  const localizePlayer = (player: Player): Partial<Player> => {
+    const localized = localizedPlayerById.get(player.id);
+    return localized ? { phone: localized.phone, email: localized.email } : {};
+  };
+
+  mergeLocalizedCollection("events", localizeEvent);
+  mergeLocalizedCollection("registrations", localizeRegistration);
+  mergeLocalizedCollection("teams", localizeTeam);
+  mergeLocalizedCollection("fields", localizeField);
+  mergeLocalizedCollection("players", localizePlayer);
+  mergeLocalizedStore("event-storage", "events", localizeEvent);
+  mergeLocalizedStore("registration-storage", "registrations", localizeRegistration);
+  mergeLocalizedStore("team-storage", "teams", localizeTeam);
+  mergeLocalizedStore("field-storage", "fields", localizeField);
+  localStorage.setItem("airsoft-localization-version", LOCALIZATION_VERSION);
+}
+
 export function initializeSeedData(): void {
+  migrateExistingMockData();
   if (!localStorage.getItem("events")) {
     localStorage.setItem("events", JSON.stringify(seedData.events));
   }

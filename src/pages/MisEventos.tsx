@@ -1,4 +1,4 @@
-import { useState, useMemo, useEffect } from "react";
+import { useState, useMemo } from "react";
 import { useNavigate } from "react-router-dom";
 import {
   Search, SlidersHorizontal, MapPin, Users, Banknote,
@@ -99,8 +99,8 @@ function ActionMenu({ eventId, onClose }: { eventId: number; onClose: () => void
 
 export default function MisEventos() {
   const navigate = useNavigate();
-  const { events, setEvents } = useEventStore();
-  const { fields, setFields } = useFieldStore();
+  const { events } = useEventStore();
+  const { fields } = useFieldStore();
   const [tab, setTab] = useState("todos");
   const [search, setSearch] = useState("");
   const [statusFilter, setStatusFilter] = useState("Todos los estados");
@@ -110,26 +110,6 @@ export default function MisEventos() {
   const [sortKey, setSortKey] = useState<SortKey>("date");
   const [sortDir, setSortDir] = useState<SortDir>("asc");
   const [openMenu, setOpenMenu] = useState<number | null>(null);
-
-  // Initialize events from seed data if empty
-  useEffect(() => {
-    if (events.length === 0) {
-      const seedEvents = localStorage.getItem("events");
-      if (seedEvents) {
-        setEvents(JSON.parse(seedEvents));
-      }
-    }
-  }, [events.length, setEvents]);
-
-  // Initialize fields from seed data if empty
-  useEffect(() => {
-    if (fields.length === 0) {
-      const seedFields = localStorage.getItem("fields");
-      if (seedFields) {
-        setFields(JSON.parse(seedFields));
-      }
-    }
-  }, [fields.length, setFields]);
 
   // Convert events to AirsoftEvent format
   const allEvents = useMemo(() => events.map(convertToAirsoftEvent), [events]);
@@ -499,7 +479,7 @@ export default function MisEventos() {
 
                   {/* Field */}
                   <div className="flex items-center gap-1.5 min-w-0">
-                    <MapPin size={11} color="#6b7280" strokeWidth={1.5} style={{ shrink: 0 }} />
+                    <MapPin size={11} color="#6b7280" strokeWidth={1.5} style={{ flexShrink: 0 }} />
                     <div style={{ fontSize: 12.5, color: "#9ca3af", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
                       {evt.field}, {evt.city}
                     </div>

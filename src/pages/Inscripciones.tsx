@@ -1,6 +1,6 @@
-import { useState, useMemo, useEffect } from "react";
+import { useState, useMemo } from "react";
 import {
-  Search, ChevronDown, Users, Euro, CheckCircle2, XCircle,
+  Search, ChevronDown, Users, CheckCircle2, XCircle,
   Clock, AlertCircle, MoreHorizontal, Eye, Check, X,
   UserCheck, Ban, Filter, ChevronLeft, ChevronRight,
   MapPin, Calendar, CreditCard, ArrowUpDown, Trash2,
@@ -8,7 +8,6 @@ import {
 } from "lucide-react";
 import { LIME, LIME_DIM, StatusBadge } from "../shared";
 import { useRegistrationStore, useEventStore, useTeamStore } from "../stores";
-import { Registration } from "../types";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 type InscStatus = "Confirmada" | "Pendiente" | "Rechazada" | "Cancelada";
@@ -22,7 +21,6 @@ interface Registration {
   team: string;
   event: string;
   eventDate: string;
-  regDate: string;
   paymentStatus: PayStatus;
   status: InscStatus;
   phone: string;
@@ -126,9 +124,9 @@ function FileIcon(props: any) { return <Eye {...props} />; }
 
 // ─── Main component ───────────────────────────────────────────────────────────
 export default function Inscripciones() {
-  const { registrations, setRegistrations, updateRegistration } = useRegistrationStore();
-  const { events, setEvents } = useEventStore();
-  const { teams, setTeams } = useTeamStore();
+  const { registrations, updateRegistration } = useRegistrationStore();
+  const { events } = useEventStore();
+  const { teams } = useTeamStore();
   
   const [eventFilter, setEventFilter] = useState("Todos los eventos");
   const [search, setSearch]           = useState("");
@@ -140,34 +138,6 @@ export default function Inscripciones() {
   const [sortKey, setSortKey]         = useState<SortKey>("regDate");
   const [sortDir, setSortDir]         = useState<"asc"|"desc">("desc");
   const [openMenu, setOpenMenu]       = useState<number|null>(null);
-
-  // Initialize data from seed data if empty
-  useEffect(() => {
-    if (registrations.length === 0) {
-      const seedRegs = localStorage.getItem("registrations");
-      if (seedRegs) {
-        setRegistrations(JSON.parse(seedRegs));
-      }
-    }
-  }, [registrations.length, setRegistrations]);
-
-  useEffect(() => {
-    if (events.length === 0) {
-      const seedEvents = localStorage.getItem("events");
-      if (seedEvents) {
-        setEvents(JSON.parse(seedEvents));
-      }
-    }
-  }, [events.length, setEvents]);
-
-  useEffect(() => {
-    if (teams.length === 0) {
-      const seedTeams = localStorage.getItem("teams");
-      if (seedTeams) {
-        setTeams(JSON.parse(seedTeams));
-      }
-    }
-  }, [teams.length, setTeams]);
 
   // Dynamic options from stores
   const eventOptions = useMemo(() => {
