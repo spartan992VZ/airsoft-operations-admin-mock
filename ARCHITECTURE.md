@@ -68,5 +68,43 @@ El formatter de Recharts acepta valores opcionales antes de convertirlos a impor
 ## Validación
 
 - `npm run build` pasa correctamente tras la refactorización.
+- `corepack pnpm@10.12.4 install --frozen-lockfile` pasa correctamente; `pnpm-lock.yaml` está sincronizado con `package.json`.
 - La lógica de hidratación permanece local y de demostración.
 - No se agregaron pagos, reservas, backend ni funcionalidades de producto real.
+
+## CI/CD y lockfile
+
+El proyecto fija el gestor de paquetes en `package.json`:
+
+```json
+"packageManager": "pnpm@10.12.4"
+```
+
+La instalación recomendada para CI/CD es:
+
+```bash
+corepack enable
+pnpm install --frozen-lockfile
+pnpm run build
+```
+
+`--frozen-lockfile` debe mantenerse en CI porque detecta cambios de dependencias no reflejados en el lockfile. `--no-frozen-lockfile` solo corresponde a una operación local deliberada para regenerar `pnpm-lock.yaml`; después hay que revisar y commitear el lockfile actualizado.
+
+Ante un error de lockfile:
+
+1. Confirmar que `package.json` y `pnpm-lock.yaml` están en el mismo commit.
+2. Usar la versión fijada de pnpm mediante Corepack.
+3. Ejecutar localmente `pnpm install` para regenerar el lockfile si realmente hay drift.
+4. Ejecutar `pnpm install --frozen-lockfile` y `pnpm run build` antes de desplegar.
+
+## Límites de las capas
+
+| Capa | Responsabilidad | No debería hacer |
+| --- | --- | --- |
+| `types/` | Contratos de dominio | Leer navegador o renderizar UI |
+| `application/` | Selectores y orquestación de casos de uso | Conocer JSX o detalles de `localStorage` |
+| `infrastructure/` | Adaptadores externos, como storage | Contener reglas visuales |
+| `stores/` | Estado compartido de presentación | Ser la única fuente de reglas de negocio complejas |
+| `pages/` | Composición y render de pantallas | Leer directamente `localStorage` |
+
+Los repositories actuales quedan como infraestructura futura. No se conectaron artificialmente porque este proyecto sigue siendo un mock local sin API.
